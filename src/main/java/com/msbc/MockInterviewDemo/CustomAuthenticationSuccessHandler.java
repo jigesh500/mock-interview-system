@@ -29,7 +29,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
                 redirectUrl = "/admin/dashboard";
                 break;
             } else if (authority.getAuthority().equals("OIDC_USER")) {
-                redirectUrl = "/user/dashboard";
+                redirectUrl = "/interview/upload";
                 break;
             }
         }

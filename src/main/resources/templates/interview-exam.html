@@ -9,13 +9,16 @@
         .container { background: #f9f9f9; padding: 30px; border-radius: 10px; }
         .question { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; border-left: 4px solid #007bff; }
         .question h3 { margin-top: 0; color: #333; }
-        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical; }
+        .mcq-question { border-left-color: #28a745; }
+        .coding-question { border-left-color: #dc3545; }
+        textarea { width: 100%; height: 120px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical; font-family: 'Courier New', monospace; }
         .option { margin: 10px 0; }
         .option input[type="radio"] { margin-right: 10px; }
         .option label { cursor: pointer; }
         button { background: #28a745; color: white; padding: 15px 40px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         button:hover { background: #218838; }
         .timer { background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
+        .question-type { font-size: 12px; background: #e9ecef; padding: 3px 8px; border-radius: 3px; color: #495057; }
     </style>
 </head>
 <body>
@@ -28,23 +31,29 @@
         <form action="/interview/submit-answers" method="post">
             <input type="hidden" name="userId" th:value="${userId}">
             
-            <div th:each="question, iterStat : ${questions}" class="question">
-                <h3 th:text="'Question ' + (${iterStat.index} + 1) + ' (' + ${question.type} + ')'">Question</h3>
+            <div th:each="question, iterStat : ${questions}" 
+                 th:class="'question ' + (${question.type} == 'MCQ' ? 'mcq-question' : 'coding-question')">
+                <h3>
+                    Question <span th:text="${iterStat.index} + 1"></span>
+                    <span class="question-type" th:text="${question.type}"></span>
+                </h3>
                 <p th:text="${question.question}">Question text</p>
                 
-                <div th:if="${question.hasOptions()}">
+                <!-- MCQ Questions with Options -->
+                <div th:if="${question.options != null and !question.options.isEmpty()}">
                     <div th:each="option, optStat : ${question.options}" class="option">
                         <input type="radio" th:name="'answer' + ${iterStat.index}" 
-                               th:value="${optStat.index == 0 ? 'A' : (optStat.index == 1 ? 'B' : (optStat.index == 2 ? 'C' : 'D'))} + ') ' + ${option}" 
+                               th:value="${option}" 
                                th:id="'q' + ${iterStat.index} + 'opt' + ${optStat.index}" required>
                         <label th:for="'q' + ${iterStat.index} + 'opt' + ${optStat.index}" 
-                               th:text="${optStat.index == 0 ? 'A' : (optStat.index == 1 ? 'B' : (optStat.index == 2 ? 'C' : 'D'))} + ') ' + ${option}">Option</label>
+                               th:text="${option}">Option</label>
                     </div>
                 </div>
                 
-                <textarea th:if="${!question.hasOptions()}" 
+                <!-- Coding Questions with Textarea -->
+                <textarea th:if="${question.options == null or question.options.isEmpty()}" 
                          th:name="'answer' + ${iterStat.index}" 
-                         placeholder="Type your answer here..." 
+                         placeholder="Write your code/answer here..." 
                          required></textarea>
             </div>
             
