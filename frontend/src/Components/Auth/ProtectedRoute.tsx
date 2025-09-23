@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
 interface ProtectedRouteProps {
   allowedRoles: string[];
@@ -7,10 +8,13 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
+  const { user, loading, isAuthenticated } = useAuth();
 
-  const userRole = localStorage.getItem('role');
+  if (loading) {
+    return <div>Loading...</div>; // wait until auth state is known
+  }
 
-  if (userRole && allowedRoles.includes(userRole)) {
+  if (isAuthenticated && user && allowedRoles.includes(user.role)) {
     return <>{children}</>;
   }
 

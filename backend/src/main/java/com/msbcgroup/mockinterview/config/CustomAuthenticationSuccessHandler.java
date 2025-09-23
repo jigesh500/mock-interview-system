@@ -28,11 +28,11 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
 
         String email = authentication.getName();
         String redirectUrl = "";
-
+        System.out.println(roles);
         if (email.equals("auth0|68c90251fc3c19e17590ed60")) {
-            redirectUrl = "/hr/dashboard";
+            redirectUrl = "http://localhost:5173/hr/dashboard";
         } else if(roles.contains("OIDC_USER")){
-            redirectUrl = "/interview/start";
+            redirectUrl = "http://localhost:5173/interview/start";
         }
 
         response.sendRedirect(redirectUrl);

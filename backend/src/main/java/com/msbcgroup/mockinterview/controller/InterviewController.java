@@ -13,20 +13,19 @@ import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
-@Controller
+@RestController
 @RequestMapping("/interview")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class InterviewController {
 
     @Autowired
@@ -44,62 +43,7 @@ public class InterviewController {
 
 
 
-//    @PostMapping("/generate-questions")
-//    public String generateQuestions(@RequestParam("resume") MultipartFile resume,
-//                                    @RequestParam("userId") String userId,
-//                                    Model model) throws Exception {
-//
-//        String resumeText = extractPdfText(resume.getInputStream());
-//        String randomSeed = UUID.randomUUID().toString().substring(0, 8);
-//        String prompt = """
-//                    You are an interview question generator.
-//                    Generate exactly 10 interview questions tailored to the candidate's background.
-//
-//                    The questions must be a **mix of types**:
-//                     - 8 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
-//                     - 2 Coding/Practical problems (short coding challenges, debugging tasks, or logic-based coding exercises).
-//
-//                    Adjust difficulty based on experience:
-//                     - 0–1 years → Mostly beginner-friendly, fundamentals, basic coding.
-//                     - 2–4 years → Intermediate difficulty, problem-solving, OOP, APIs, SQL, algorithms.
-//                     - 5+ years → Advanced design, optimization, system design, scaling, architecture-level coding problems.
-//
-//                    Cover a variety of relevant topics from the resume:%s
-//                    Ensure variety and randomness: use seed %s to make questions unique
-//                    Ensure each question is concise, clear, and unambiguous.
-//
-//                    Output strictly in JSON format only, no explanations.
-//                JSON format:
-//                {
-//                  "questions": [
-//                    {
-//                      "id": "Q1",
-//                      "type": "MCQ",
-//                      "question": "...",
-//                      "options": ["A) ...", "B) ...", "C) ...", "D) ..."]
-//                    },
-//                    {
-//                      "id": "Q6",
-//                      "type": "Coding",
-//                      "question": "..."
-//                    }
-//                  ]
-//                }
-//
-//                """.formatted(resumeText, randomSeed);
-//
-//        String response = chatClient.prompt()
-//                .user(prompt)
-//                .call()
-//                .content();
-//
-//        List<Question> questions = parseQuestions(response);
-//        userQuestions.put(userId, questions);
-//        model.addAttribute("questions", questions);
-//        model.addAttribute("userId", userId);
-//
-//        return "interview-exam";
-//    }
+
 
     @PostMapping("/submit-answers")
     public String submitAnswers(@RequestParam Map<String, String> answers,
@@ -224,21 +168,22 @@ public class InterviewController {
 //    }
 
     @GetMapping("/start")
-    public String startInterview(@AuthenticationPrincipal OAuth2User principal, Model model) {
+    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) {
         String email = principal.getAttribute("email");
 
         CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
         if (profile == null) {
             profile = createSampleProfile(email);
         }
-        //CandidateProfile profile= createSampleProfile(email);
 
-        List<Question>questions=generateQuestionsFromProfile(profile);
+        List<Question> questions = generateQuestionsFromProfile(profile);
         userQuestions.put(email, questions);
 
-        model.addAttribute("questions", questions);
-        model.addAttribute("userId", email);
-        return "interview-exam";
+        Map<String, Object> response = new HashMap<>();
+        response.put("questions", questions);
+        response.put("userId", email);
+
+        return ResponseEntity.ok(response);
     }
 
     private CandidateProfile createSampleProfile(String email) {

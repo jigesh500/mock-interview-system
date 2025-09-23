@@ -12,7 +12,7 @@ const Login = () => {
       if (user.role === 'hr') {
         navigate('/hr/dashboard');
       } else if (user.role === 'candidate') {
-        navigate('/candidate/start-test');
+        navigate('/interview/start');
       }
     }
   }, [isAuthenticated, user, navigate]);

@@ -7,7 +7,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'hr' | 'candidate';
+  user_id: 'hr' | 'candidate';
 }
 
 interface AuthState {
@@ -109,7 +109,7 @@ const authSlice = createSlice({
           if (action.payload.user.role === 'hr') {
             state.redirectUrl = '/hr/dashboard';
           } else if (action.payload.user.role === 'candidate') {
-            state.redirectUrl = '/candidate/start-test';
+            state.redirectUrl = '/interview/start';
           }
         }
       })
