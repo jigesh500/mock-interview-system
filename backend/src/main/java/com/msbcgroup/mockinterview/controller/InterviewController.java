@@ -1,15 +1,14 @@
 package com.msbcgroup.mockinterview.controller;
 
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.msbcgroup.mockinterview.model.CandidateProfile;
-import com.msbcgroup.mockinterview.model.InterviewResult;
-import com.msbcgroup.mockinterview.model.InterviewSummary;
-import com.msbcgroup.mockinterview.model.Question;
+import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
+import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -31,28 +30,54 @@ public class InterviewController {
     @Autowired
     private CandidateProfileRepository candidateProfileRepository;
 
+    @Autowired
+    private InterviewSessionRepository sessionRepository;
+
     private final ChatClient chatClient;
-    private final Map<String, List<Question>> userQuestions = new HashMap<>();
 
     public InterviewController(ChatClient.Builder chatClient) {
         this.chatClient = chatClient.build();
     }
 
     @GetMapping("/start")
-    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) {
+    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
         String email = principal.getAttribute("email");
 
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
-        if (profile == null) {
-            profile = createSampleProfile(email);
+        InterviewSession existingSession=sessionRepository.findByCandidateEmailAndCompleted(email,false);
+
+        if (existingSession != null) {
+            // Return existing session instead of creating new one
+            ObjectMapper mapper = new ObjectMapper();
+            List<Question> existingQuestions = mapper.readValue(existingSession.getQuestionsJson(),
+                    new TypeReference<List<Question>>() {});
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("questions", existingQuestions);
+            response.put("sessionId", existingSession.getSessionId());
+            return ResponseEntity.ok(response);
         }
 
+
+        String sessionId = UUID.randomUUID().toString();
+
+
+        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
+//
+
         List<Question> questions = generateQuestionsFromProfile(profile);
-        userQuestions.put(email, questions);
+        // Store complete questions as JSON
+        ObjectMapper mapper = new ObjectMapper();
+        String questionsJson = mapper.writeValueAsString(questions);
+
+        InterviewSession session = new InterviewSession();
+        session.setSessionId(sessionId);
+        session.setCandidateEmail(email);
+        session.setQuestionsJson(questionsJson);
+        sessionRepository.save(session);
 
         Map<String, Object> response = new HashMap<>();
         response.put("questions", questions);
-        response.put("userId", email);
+        response.put("sessionId", sessionId); // Use sessionId instead of userId
 
         return ResponseEntity.ok(response);
     }
@@ -60,12 +85,18 @@ public class InterviewController {
     @PostMapping("/submit-answers")
     public ResponseEntity<Map<String, Object>> submitAnswers(
             @RequestBody Map<String, String> answers,
-            @RequestParam("userId") String userId,
-            @AuthenticationPrincipal OAuth2User principal) {
+            @RequestParam("sessionId") String sessionId) throws JsonProcessingException {
 
-        String email = principal.getAttribute("email");
+
+        InterviewSession session = sessionRepository.findBySessionId(sessionId);
+        String email = session.getCandidateEmail();
+        ObjectMapper mapper = new ObjectMapper();
+        List<Question> questions = mapper.readValue(session.getQuestionsJson(),
+                new TypeReference<List<Question>>() {
+                });
+
+
         Map<String, String> userAnswerMap = new HashMap<>();
-        List<Question> questions = userQuestions.get(userId);
 
         for (int i = 0; i < questions.size(); i++) {
             String answer = answers.get("answer" + i);
@@ -75,10 +106,8 @@ public class InterviewController {
         }
 
         // Generate AI review
-        String reviewPrompt = buildReviewPrompt(
-                questions.stream().map(Question::getQuestion).toList(),
-                userAnswerMap
-        );
+        String reviewPrompt = buildReviewPrompt(questions, userAnswerMap);
+
         String aiResponse = chatClient.prompt()
                 .user(reviewPrompt)
                 .call()
@@ -101,7 +130,7 @@ public class InterviewController {
         // Return JSON instead of view
         Map<String, Object> response = new HashMap<>();
         response.put("summary", summary);
-        response.put("questions", questions.stream().map(Question::getQuestion).toList());
+        response.put("questions", questions);
         response.put("answers", userAnswerMap);
 
         return ResponseEntity.ok(response);
@@ -133,18 +162,26 @@ public class InterviewController {
         }
     }
 
-    private String buildReviewPrompt(List<String> questions, Map<String, String> answers) {
+    private String buildReviewPrompt(List<Question> questions, Map<String, String> answers) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("Please review this interview and provide a comprehensive summary:\n\n");
 
-        for (String question : questions) {
-            String answer = answers.get(question);
-            prompt.append("Question: ").append(question).append("\n");
+        for (Question question : questions) {
+            String answer = answers.get(question.getQuestion());
+            prompt.append("Question: ").append(question.getQuestion()).append("\n");
+
+            if ("MCQ".equals(question.getType()) && question.getOptions() != null && !question.getOptions().isEmpty()) {
+                prompt.append("Options: ").append(String.join(", ", question.getOptions())).append("\n");
+            }
+
             prompt.append("Answer: ").append(answer != null ? answer : "No answer provided").append("\n\n");
         }
 
         prompt.append("""
                 You are an experienced technical interviewer. Review the candidate's exam answers and generate a structured evaluation.
+                
+                For MCQ questions, evaluate if the selected option is correct.
+                For coding questions, evaluate logic, syntax, and approach.
                 
                 Output strictly in JSON format:
                 {
