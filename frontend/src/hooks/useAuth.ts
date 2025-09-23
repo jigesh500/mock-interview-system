@@ -9,6 +9,7 @@ export const useAuth = () => {
   const { user, isAuthenticated, loading, redirectUrl } = useAppSelector(state => state.auth);
 
   useEffect(() => {
+    console.log('Checking auth status...');
     dispatch(checkAuthStatus());
   }, [dispatch]);
 

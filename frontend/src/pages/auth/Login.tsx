@@ -10,8 +10,10 @@ const Login = () => {
     if (isAuthenticated && user) {
       // Redirect based on role
       if (user.role === 'hr') {
+        console.log("hr from login")
         navigate('/hr/dashboard');
       } else if (user.role === 'candidate') {
+        console.log("candidate from login")
         navigate('/interview/start');
       }
     }
