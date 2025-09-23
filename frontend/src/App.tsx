@@ -3,11 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 import Login from './pages/auth/Login';
 import ProtectedRoute from './Components/Auth/ProtectedRoute';
-import CandidateStartTest from './Components/CandidateStartTest'
+
 // Dashboard Components
 const HRDashboard = () => <div className="p-8">HR Dashboard</div>;
 import { useEffect, useState } from "react";
 import axios from "axios";
+import TestInterface from './pages/protected/candidate/TestInterface';
 
 
 
@@ -27,7 +28,7 @@ const App = () => {
         
         <Route path="/interview/start" element={
           <ProtectedRoute allowedRoles={['candidate']}>
-            <CandidateStartTest />
+            <TestInterface/>
           </ProtectedRoute>
         } />
         
