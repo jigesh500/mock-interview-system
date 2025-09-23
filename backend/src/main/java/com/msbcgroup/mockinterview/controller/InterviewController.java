@@ -4,7 +4,6 @@ package com.msbcgroup.mockinterview.controller;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.InterviewResult;
 import com.msbcgroup.mockinterview.model.InterviewSummary;
@@ -16,8 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -41,15 +38,30 @@ public class InterviewController {
         this.chatClient = chatClient.build();
     }
 
+    @GetMapping("/start")
+    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) {
+        String email = principal.getAttribute("email");
 
+        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
+        if (profile == null) {
+            profile = createSampleProfile(email);
+        }
 
+        List<Question> questions = generateQuestionsFromProfile(profile);
+        userQuestions.put(email, questions);
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("questions", questions);
+        response.put("userId", email);
+
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping("/submit-answers")
-    public String submitAnswers(@RequestParam Map<String, String> answers,
-                                @RequestParam("userId") String userId,
-                                @AuthenticationPrincipal OAuth2User principal,
-                                Model model) {
+    public ResponseEntity<Map<String, Object>> submitAnswers(
+            @RequestBody Map<String, String> answers,
+            @RequestParam("userId") String userId,
+            @AuthenticationPrincipal OAuth2User principal) {
 
         String email = principal.getAttribute("email");
         Map<String, String> userAnswerMap = new HashMap<>();
@@ -62,7 +74,11 @@ public class InterviewController {
             }
         }
 
-        String reviewPrompt = buildReviewPrompt(questions.stream().map(Question::getQuestion).toList(), userAnswerMap);
+        // Generate AI review
+        String reviewPrompt = buildReviewPrompt(
+                questions.stream().map(Question::getQuestion).toList(),
+                userAnswerMap
+        );
         String aiResponse = chatClient.prompt()
                 .user(reviewPrompt)
                 .call()
@@ -70,8 +86,9 @@ public class InterviewController {
 
         InterviewSummary summary = parseAiSummary(aiResponse);
 
+        // Save to DB
         InterviewResult existingResult = interviewResult.findByCandidateEmail(email);
-        if(existingResult != null) {
+        if (existingResult != null) {
             existingResult.setAttempts(existingResult.getAttempts() + 1);
             existingResult.setSubmittedAt(LocalDateTime.now());
             existingResult.setSummary(summary);
@@ -81,11 +98,13 @@ public class InterviewController {
             interviewResult.save(result);
         }
 
-        model.addAttribute("summary", summary);
-        model.addAttribute("questions", questions.stream().map(Question::getQuestion).toList());
-        model.addAttribute("answers", userAnswerMap);
+        // Return JSON instead of view
+        Map<String, Object> response = new HashMap<>();
+        response.put("summary", summary);
+        response.put("questions", questions.stream().map(Question::getQuestion).toList());
+        response.put("answers", userAnswerMap);
 
-        return "interview-results";
+        return ResponseEntity.ok(response);
     }
 
     private List<Question> parseQuestions(String response) {
@@ -98,11 +117,13 @@ public class InterviewController {
             JsonNode root = mapper.readTree(response);
 
             if (root.has("questions")) {
-                return mapper.convertValue(root.get("questions"), new TypeReference<List<Question>>() {});
+                return mapper.convertValue(root.get("questions"), new TypeReference<List<Question>>() {
+                });
             }
 
             if (root.isArray()) {
-                return mapper.convertValue(root, new TypeReference<List<Question>>() {});
+                return mapper.convertValue(root, new TypeReference<List<Question>>() {
+                });
             }
 
             return new ArrayList<>();
@@ -161,26 +182,6 @@ public class InterviewController {
     }
 
 
-
-    @GetMapping("/start")
-    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) {
-        String email = principal.getAttribute("email");
-
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
-        if (profile == null) {
-            profile = createSampleProfile(email);
-        }
-
-        List<Question> questions = generateQuestionsFromProfile(profile);
-        userQuestions.put(email, questions);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("questions", questions);
-        response.put("userId", email);
-
-        return ResponseEntity.ok(response);
-    }
-
     private CandidateProfile createSampleProfile(String email) {
         CandidateProfile profile = new CandidateProfile();
         profile.setCandidateEmail(email);
@@ -215,7 +216,7 @@ public class InterviewController {
                      - 2–4 years → Intermediate difficulty, problem-solving, OOP, APIs, SQL, algorithms.
                      - 5+ years → Advanced design, optimization, system design, scaling, architecture-level coding problems.
                 
-                   
+                
                     Ensure variety and randomness: use seed %s to make questions unique 
                     Ensure each question is concise, clear, and unambiguous.
                 
@@ -240,7 +241,7 @@ public class InterviewController {
                 """.formatted(profile.getPositionApplied(), profile.getExperienceYears(),
                 profile.getSkills(), profile.getDescription(), randomSeed);
 
-        String response=chatClient.prompt()
+        String response = chatClient.prompt()
                 .user(prompt)
                 .call()
                 .content();
