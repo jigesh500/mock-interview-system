@@ -19,7 +19,7 @@ const App = () => {
         <Route path="/auth/login" element={<Login />} />
         
         {/* Protected Routes */}
-        <Route path="/api/hr/dashboard" element={
+        <Route path="hr/dashboard" element={
           <ProtectedRoute allowedRoles={['hr']}>
             <HRDashboard />
           </ProtectedRoute>

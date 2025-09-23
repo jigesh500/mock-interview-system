@@ -41,7 +41,8 @@ public class AuthController {
 
 
     private String determineUserRole(String email, OAuth2User principal) {
-        if (email.equals("auth0|68c90251fc3c19e17590ed60")) {
+        System.out.println(email);
+        if (email.equals("jigesh.jethava@msbcgroup.com")) {
             return "hr";
         }
         // Add more role logic here
