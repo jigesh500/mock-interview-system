@@ -160,12 +160,7 @@ public class InterviewController {
         }
     }
 
-//    private String extractPdfText(InputStream pdfInputStream) throws Exception {
-//        try (PDDocument document = PDDocument.load(pdfInputStream)) {
-//            PDFTextStripper pdfStripper = new PDFTextStripper();
-//            return pdfStripper.getText(document);
-//        }
-//    }
+
 
     @GetMapping("/start")
     public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) {
