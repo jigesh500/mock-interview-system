@@ -21,8 +21,8 @@ public class AuthController {
             String email = principal.getAttribute("email");
             String name = principal.getAttribute("name");
 
-            // Determine role based on email (same logic as your CustomAuthenticationSuccessHandler)
-            String role = email.equals("auth0|68c90251fc3c19e17590ed60") ? "hr" : "candidate";
+            // Role determination logic moved here
+            String role = determineUserRole(email, principal);
 
             Map<String, Object> user = new HashMap<>();
             user.put("id", email);
@@ -37,6 +37,15 @@ public class AuthController {
         }
 
         return response;
+    }
+
+
+    private String determineUserRole(String email, OAuth2User principal) {
+        if (email.equals("auth0|68c90251fc3c19e17590ed60")) {
+            return "hr";
+        }
+        // Add more role logic here
+        return "candidate";
     }
 
     @PostMapping("/logout")

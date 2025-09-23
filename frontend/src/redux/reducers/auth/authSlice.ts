@@ -7,7 +7,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  user_id: 'hr' | 'candidate';
+  role: 'hr' | 'candidate';
 }
 
 interface AuthState {
@@ -48,6 +48,7 @@ export const checkAuthStatus = createAsyncThunk(
       const response = await axios.get('http://localhost:8081/api/auth/user', { 
         withCredentials: true 
       });
+  console.log('Auth Status Response:', response.data);
       return response.data; // Should return { user: User, authenticated: boolean }
     } catch (err: any) {
       return rejectWithValue('Not authenticated');
