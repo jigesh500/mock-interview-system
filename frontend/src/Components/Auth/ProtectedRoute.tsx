@@ -11,7 +11,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children 
   const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // wait until auth state is known
+    return <div>Loading...</div>;
   }
 
   if (isAuthenticated && user && allowedRoles.includes(user.role)) {
