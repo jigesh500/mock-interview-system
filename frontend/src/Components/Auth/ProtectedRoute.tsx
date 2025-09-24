@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import Header from '../Header';
 
 interface ProtectedRouteProps {
   allowedRoles: string[];
@@ -15,7 +16,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children 
   }
 
   if (isAuthenticated && user && allowedRoles.includes(user.role)) {
-    return <>{children}</>;
+    return <>
+    <Header />
+    {children}</>;
   }
 
   return <Navigate to="/auth/login" replace />;
