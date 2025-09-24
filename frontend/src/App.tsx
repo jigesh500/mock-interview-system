@@ -2,15 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login from './pages/auth/Login';
-import ProtectedRoute from './Components/Auth/ProtectedRoute';
-
-// Dashboard Components
-const HRDashboard = () => <div className="p-8">HR Dashboard</div>;
-import { useEffect, useState } from "react";
-import axios from "axios";
+import ProtectedRoute from './Components/auth/ProtectedRoute';
 import TestInterface from './pages/protected/candidate/TestInterface';
 
-
+const HRDashboard = () => <div className="p-8">HR Dashboard</div>;
 
 const App = () => {
   return (

@@ -1,5 +1,4 @@
 import { Box, Card, Chip, Grid, Typography } from '@mui/material'
-import React from 'react'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { setCurrentQuestionIndex } from '../../redux/reducers/testSlice';
 
