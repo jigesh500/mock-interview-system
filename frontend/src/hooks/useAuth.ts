@@ -9,9 +9,11 @@ export const useAuth = () => {
   const { user, isAuthenticated, loading, redirectUrl } = useAppSelector(state => state.auth);
 
   useEffect(() => {
+      if (!user && !loading && !isAuthenticated) {
     console.log('Checking auth status...');
     dispatch(checkAuthStatus());
-  }, [dispatch]);
+    }
+  }, []);
 
   const login = () => dispatch(initiateAuth0Login());
 

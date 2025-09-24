@@ -43,26 +43,25 @@ public class InterviewController {
     public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
         String email = principal.getAttribute("email");
 
-        InterviewSession existingSession=sessionRepository.findByCandidateEmailAndCompleted(email,false);
+        //InterviewSession existingSession = sessionRepository.findByCandidateEmailAndCompleted(email, false);
 
-        if (existingSession != null) {
-            // Return existing session instead of creating new one
-            ObjectMapper mapper = new ObjectMapper();
-            List<Question> existingQuestions = mapper.readValue(existingSession.getQuestionsJson(),
-                    new TypeReference<List<Question>>() {});
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("questions", existingQuestions);
-            response.put("sessionId", existingSession.getSessionId());
-            return ResponseEntity.ok(response);
-        }
-
+//        if (existingSession != null) {
+//            // Return existing session instead of creating new one
+//            ObjectMapper mapper = new ObjectMapper();
+//            List<Question> existingQuestions = mapper.readValue(existingSession.getQuestionsJson(),
+//                    new TypeReference<List<Question>>() {
+//                    });
+//
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("questions", existingQuestions);
+//            response.put("sessionId", existingSession.getSessionId());
+//            return ResponseEntity.ok(response);
+//        }
 
         String sessionId = UUID.randomUUID().toString();
 
 
         CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
-//
 
         List<Question> questions = generateQuestionsFromProfile(profile);
         // Store complete questions as JSON
@@ -73,6 +72,7 @@ public class InterviewController {
         session.setSessionId(sessionId);
         session.setCandidateEmail(email);
         session.setQuestionsJson(questionsJson);
+        session.setCompleted(false);
         sessionRepository.save(session);
 
         Map<String, Object> response = new HashMap<>();
@@ -94,7 +94,8 @@ public class InterviewController {
         List<Question> questions = mapper.readValue(session.getQuestionsJson(),
                 new TypeReference<List<Question>>() {
                 });
-
+        session.setCompleted(true);
+        sessionRepository.save(session);
 
         Map<String, String> userAnswerMap = new HashMap<>();
 
