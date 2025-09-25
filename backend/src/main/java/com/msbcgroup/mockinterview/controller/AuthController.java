@@ -32,18 +32,22 @@ public class AuthController {
             String email = principal.getAttribute("email");
             String name = principal.getAttribute("name");
 
-            // Role determination logic moved here
-            String role = determineUserRole(email, principal);
+            if (email != null && name != null) {
 
-            Map<String, Object> user = new HashMap<>();
-            user.put("id", email);
-            user.put("email", email);
-            user.put("name", name);
-            user.put("role", role);
+                String role = determineUserRole(email, principal);
 
-            response.put("user", user);
-            response.put("authenticated", true);
-        } else {
+                Map<String, Object> user = new HashMap<>();
+                user.put("id", email);
+                user.put("email", email);
+                user.put("name", name);
+                user.put("role", role);
+
+                response.put("user", user);
+                response.put("authenticated", true);
+            } else {
+                response.put("authenticated", false);
+            }
+        }else {
             response.put("authenticated", false);
         }
 
@@ -53,10 +57,9 @@ public class AuthController {
 
     private String determineUserRole(String email, OAuth2User principal) {
         System.out.println(email);
-        if (email.equals("jigesh.jethava@msbcgroup.com")) {
+        if (email!=null&&email.equals("jigesh.jethava@msbcgroup.com")) {
             return "hr";
         }
-        // Add more role logic here
         return "candidate";
     }
 
