@@ -61,7 +61,8 @@ public class InterviewController {
         String sessionId = UUID.randomUUID().toString();
 
 
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email);
+        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email)
+                .orElseThrow(() -> new RuntimeException("CandidateProfile not found for email: " + email));
 
         List<Question> questions = generateQuestionsFromProfile(profile);
         // Store complete questions as JSON
@@ -88,7 +89,9 @@ public class InterviewController {
             @RequestParam("sessionId") String sessionId) throws JsonProcessingException {
 
 
-        InterviewSession session = sessionRepository.findBySessionId(sessionId);
+        InterviewSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found with id: " + sessionId));
+
         String email = session.getCandidateEmail();
         ObjectMapper mapper = new ObjectMapper();
         List<Question> questions = mapper.readValue(session.getQuestionsJson(),
@@ -130,9 +133,8 @@ public class InterviewController {
 
         // Return JSON instead of view
         Map<String, Object> response = new HashMap<>();
-        response.put("summary", summary);
-        response.put("questions", questions);
-        response.put("answers", userAnswerMap);
+        response.put("status", "success");
+        response.put("message", "Interview submitted successfully");
 
         return ResponseEntity.ok(response);
     }
@@ -206,13 +208,14 @@ public class InterviewController {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response);
 
-            return new InterviewSummary(
-                    root.get("score").asInt(),
-                    root.get("summary").asText(),
-                    root.get("strengths").asText(),
-                    root.get("improvements").asText(),
-                    root.get("recommendation").asText()
-            );
+            int score = root.has("score") && !root.get("score").isNull() ? root.get("score").asInt() : 0;
+            String summary = root.has("summary") && !root.get("summary").isNull() ? root.get("summary").asText() : "No summary available";
+            String strengths = root.has("strengths") && !root.get("strengths").isNull() ? root.get("strengths").asText() : "No strengths identified";
+            String improvements = root.has("improvements") && !root.get("improvements").isNull() ? root.get("improvements").asText() : "No improvements identified";
+            String recommendation = root.has("recommendation") && !root.get("recommendation").isNull() ? root.get("recommendation").asText() : "No recommendation available";
+
+            return new InterviewSummary(score, summary, strengths, improvements, recommendation);
+
         } catch (Exception e) {
             e.printStackTrace();
             return new InterviewSummary(0, "Error parsing summary", "", "", "");
