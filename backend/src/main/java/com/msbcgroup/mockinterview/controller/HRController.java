@@ -33,6 +33,10 @@ public class HRController {
 
     @PostMapping("/candidates")
     public ResponseEntity<CandidateProfile> saveCandidate(@RequestBody CandidateProfile candidate) {
+        if(candidate==null){
+            return ResponseEntity.badRequest().build();
+        }
+
         CandidateProfile saved = candidateProfileRepository.save(candidate);
         return ResponseEntity.ok(saved);  // return the saved object as JSON
     }
