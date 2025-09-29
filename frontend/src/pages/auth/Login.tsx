@@ -1,23 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Login = () => {
   const { login, isAuthenticated, user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      // Redirect based on role
-      if (user.role === 'hr') {
-        console.log("hr from login")
-        navigate('/hr/dashboard');
-      } else if (user.role === 'candidate') {
-        console.log("candidate from login")
-        navigate('/interview/start');
+    // Mark that we've checked auth status
+    if (!loading) {
+      setHasCheckedAuth(true);
+    }
+
+    // Only redirect if authenticated and we've completed the auth check
+    if (isAuthenticated && user && !loading && hasCheckedAuth) {
+      // Don't redirect if we came from a logout (state will be cleared)
+      const fromLogout = location.state?.fromLogout;
+      if (!fromLogout) {
+        if (user.role === 'hr') {
+          console.log("hr from login")
+          navigate('/hr/dashboard', { replace: true });
+        } else if (user.role === 'candidate') {
+          console.log("candidate from login")
+          navigate('/candidate/dashboard', { replace: true });
+        }
       }
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, loading, navigate, location.state, hasCheckedAuth]);
 
   const handleLogin = () => {
     login(); 

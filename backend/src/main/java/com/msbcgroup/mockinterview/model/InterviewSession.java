@@ -18,6 +18,8 @@ public class InterviewSession {
     @Column(columnDefinition = "JSON")
     private String questionsJson;
 
+    private String meetingId;  // Links to InterviewMeeting
+    private String hrEmail;
     private LocalDateTime createdAt;
     private boolean completed = false;
 
@@ -60,6 +62,12 @@ public class InterviewSession {
     public boolean isCompleted() {
         return completed;
     }
+
+    public String getMeetingId() { return meetingId; }
+    public void setMeetingId(String meetingId) { this.meetingId = meetingId; }
+
+    public String getHrEmail() { return hrEmail; }
+    public void setHrEmail(String hrEmail) { this.hrEmail = hrEmail; }
 
     public void setCompleted(boolean completed) {
         this.completed = completed;

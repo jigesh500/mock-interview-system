@@ -1,8 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/auth/Login';
-import ProtectedRoute from './Components/auth/ProtectedRoute';
 import TestInterface from './pages/protected/candidate/TestInterface';
-const HRDashboard = () => <div className="p-8">HR Dashboard</div>;
+import HRDashboard from './pages/HRDashboard';
+import CandidateDashboard from './pages/CandidateDashboard';
 
 const App = () => {
   return (
@@ -10,17 +10,11 @@ const App = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/auth/login" element={<Login />} />
-        {/* Protected Routes */}
-        <Route path="hr/dashboard" element={
-          <ProtectedRoute allowedRoles={['hr']}>
-            <HRDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/interview/start" element={
-          <ProtectedRoute allowedRoles={['candidate']}>
-            <TestInterface/>
-          </ProtectedRoute>
-        } />
+
+        {/* Temporarily remove ProtectedRoute wrapper */}
+        <Route path="/hr/dashboard" element={<HRDashboard />} />
+        <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
+        <Route path="/interview/start" element={<TestInterface/>} />
         
         {/* Default Route */}
         <Route path="/" element={<Navigate to="/auth/login" replace />} />

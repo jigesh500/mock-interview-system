@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 
+
 // Types
 interface User {
   id: string;
@@ -60,12 +61,13 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      await axios.post('http://localhost:8081/api/auth/logout', {}, { 
-        withCredentials: true 
+      await axios.get('http://localhost:8081/hr/logout', {
+        withCredentials: true
       });
       return null;
     } catch (err: any) {
-      return rejectWithValue('Logout failed');
+      // Even if logout fails, clear the state
+      return null;
     }
   }
 );
@@ -81,6 +83,13 @@ const authSlice = createSlice({
     clearRedirectUrl(state) {
       state.redirectUrl = null;
     },
+clearAuth(state) {
+    state.user = null;
+    state.isAuthenticated = false;
+    state.redirectUrl = null;
+    state.error = null;
+    state.loading = false;
+  },
   },
   extraReducers: (builder) => {
     builder
@@ -138,5 +147,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, clearRedirectUrl } = authSlice.actions;
+export const { clearError, clearRedirectUrl, clearAuth } = authSlice.actions;
 export default authSlice.reducer;
