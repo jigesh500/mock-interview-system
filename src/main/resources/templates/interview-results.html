@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Interview Results - Mock Interview</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; padding: 30px; border-radius: 10px; }
+        .review-section { background: white; padding: 25px; margin-bottom: 20px; border-radius: 8px; border-left: 4px solid #28a745; }
+        .qa-section { background: #f8f9fa; padding: 20px; margin-bottom: 15px; border-radius: 8px; }
+        .question { font-weight: bold; color: #495057; margin-bottom: 10px; }
+        .answer { background: white; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6; }
+        .ai-review { background: #e7f3ff; padding: 20px; border-radius: 8px; border-left: 4px solid #007bff; }
+        .actions { text-align: center; margin-top: 30px; }
+        .btn { display: inline-block; padding: 12px 25px; margin: 0 10px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn:hover { opacity: 0.9; }
+        pre { white-space: pre-wrap; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Interview Results & AI Analysis</h1>
+        
+        <div class="review-section">
+            <h2>🤖 AI Review & Feedback</h2>
+            <div class="ai-review">
+                <pre th:text="${review}">AI review will appear here</pre>
+            </div>
+        </div>
+        
+        <div class="review-section">
+            <h2>📝 Your Interview Responses</h2>
+            <div th:each="question, iterStat : ${questions}" class="qa-section">
+                <div class="question" th:text="'Q' + (${iterStat.index} + 1) + ': ' + ${question}">Question</div>
+                <div class="answer">
+                    <strong>Your Answer:</strong><br>
+                    <span th:text="${answers.get(question)} ?: 'No answer provided'">Answer</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <a href="/interview/upload" class="btn btn-primary">Take Another Interview</a>
+            <a href="/" class="btn btn-success">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

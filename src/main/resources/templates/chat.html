@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Chat - Mock Interview System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { background: #f9f9f9; padding: 30px; border-radius: 10px; }
+        .chat-box { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; min-height: 300px; }
+        .input-group { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #007bff; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .message { margin-bottom: 15px; padding: 10px; border-radius: 5px; }
+        .user-message { background: #e3f2fd; text-align: right; }
+        .ai-message { background: #f1f8e9; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        <h1>💬 AI Chat Assistant</h1>
+        <p>Ask me anything about interviews, career advice, or technical questions!</p>
+        
+        <div class="chat-box" id="chatBox">
+            <div class="message ai-message">
+                <strong>AI:</strong> Hello! I'm here to help you with interview preparation and career guidance. What would you like to know?
+            </div>
+        </div>
+        
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatBox = document.getElementById('chatBox');
+            
+            // Add user message
+            chatBox.innerHTML += `<div class="message user-message"><strong>You:</strong> ${message}</div>`;
+            input.value = '';
+            
+            // Add loading message
+            chatBox.innerHTML += `<div class="message ai-message" id="loading"><strong>AI:</strong> Thinking...</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `q=${encodeURIComponent(message)}`
+                });
+                
+                const aiResponse = await response.text();
+                
+                // Remove loading message and add AI response
+                document.getElementById('loading').remove();
+                chatBox.innerHTML += `<div class="message ai-message"><strong>AI:</strong> ${aiResponse}</div>`;
+            } catch (error) {
+                document.getElementById('loading').innerHTML = '<strong>AI:</strong> Sorry, there was an error processing your message.';
+            }
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
