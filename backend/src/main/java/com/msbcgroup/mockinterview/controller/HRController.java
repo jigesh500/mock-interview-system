@@ -1,20 +1,27 @@
 package com.msbcgroup.mockinterview.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.InterviewMeeting;
 import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
+import com.msbcgroup.mockinterview.service.FileProcessingService;
+import com.msbcgroup.mockinterview.service.ResumeParsingService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,11 +33,19 @@ import java.util.UUID;
 @CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class HRController {
 
+    private static final Logger logger = LoggerFactory.getLogger(HRController.class);
+
     @Autowired
     private CandidateProfileRepository candidateProfileRepository;
 
     @Autowired
     private InterviewMeetingRepository meetingRepository;
+
+    @Autowired
+    private ResumeParsingService resumeParsingService;
+
+    @Autowired
+    private FileProcessingService fileProcessingService;
 
     @GetMapping("/dashboard")
     public List<CandidateProfile> hrDashboard() {
@@ -39,112 +54,27 @@ public class HRController {
 
     @PostMapping("/create-meeting")
     public ResponseEntity<Map<String, Object>> createMeeting(@AuthenticationPrincipal OAuth2User principal) {
-        String hrEmail = principal.getAttribute("email");
+        String hrEmail = principal != null ? principal.getAttribute("email") : "unknown@example.com";
 
-        try {
-            // Create actual Teams meeting via Graph API
-            Map<String, Object> teamsResponse = createTeamsMeeting();
-            
-            String meetingId = (String) teamsResponse.get("id");
-            String joinUrl = (String) teamsResponse.get("joinUrl");
+        // Generate realistic Teams meeting URL for demo purposes
+        String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
+        String realisticUrl = "https://teams.microsoft.com/l/meetup-join/19%3ameeting_" 
+            + UUID.randomUUID().toString().replace("-", "") + "%40thread.v2/0";
 
-            InterviewMeeting meeting = new InterviewMeeting();
-            meeting.setMeetingId(meetingId);
-            meeting.setHrEmail(hrEmail);
-            meeting.setMeetingUrl(joinUrl);
+        InterviewMeeting meeting = new InterviewMeeting();
+        meeting.setMeetingId(meetingId);
+        meeting.setHrEmail(hrEmail);
+        meeting.setMeetingUrl(realisticUrl);
 
-            meetingRepository.save(meeting);
+        meetingRepository.save(meeting);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("meetingId", meetingId);
-            response.put("meetingUrl", joinUrl);
-            response.put("status", "created");
+        Map<String, Object> response = new HashMap<>();
+        response.put("meetingId", meetingId);
+        response.put("meetingUrl", realisticUrl);
+        response.put("status", "created");
+        response.put("note", "Demo Teams meeting URL");
 
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            // Fallback to mock meeting if Graph API fails
-            String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
-            String mockTeamsUrl = "https://teams.microsoft.com/l/meetup-join/mock/" + meetingId;
-
-            InterviewMeeting meeting = new InterviewMeeting();
-            meeting.setMeetingId(meetingId);
-            meeting.setHrEmail(hrEmail);
-            meeting.setMeetingUrl(mockTeamsUrl);
-
-            meetingRepository.save(meeting);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("meetingId", meetingId);
-            response.put("meetingUrl", mockTeamsUrl);
-            response.put("status", "created");
-            response.put("error", "Used mock meeting: " + e.getMessage());
-
-            return ResponseEntity.ok(response);
-        }
-    }
-
-    private Map<String, Object> createTeamsMeeting() throws Exception {
-        // Microsoft Graph API configuration
-        String clientId = "YOUR_CLIENT_ID";
-        String clientSecret = "YOUR_CLIENT_SECRET";
-        String tenantId = "YOUR_TENANT_ID";
-        String userId = "YOUR_USER_ID";
-        
-        // Get access token
-        String accessToken = getAccessToken(clientId, clientSecret, tenantId);
-        
-        // Create meeting request
-        String meetingJson = "{"
-            + "\"subject\": \"Interview Meeting\","
-            + "\"startTime\": \"" + java.time.Instant.now().plus(java.time.Duration.ofMinutes(5)) + "\","
-            + "\"endTime\": \"" + java.time.Instant.now().plus(java.time.Duration.ofHours(1)) + "\""
-            + "}";
-        
-        // Call Graph API
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-            .uri(java.net.URI.create("https://graph.microsoft.com/v1.0/users/" + userId + "/onlineMeetings"))
-            .header("Authorization", "Bearer " + accessToken)
-            .header("Content-Type", "application/json")
-            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(meetingJson))
-            .build();
-            
-        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-        
-        if (response.statusCode() == 201) {
-            // Parse response and extract meeting details
-            Map<String, Object> result = new HashMap<>();
-            result.put("id", "teams_" + UUID.randomUUID().toString().substring(0, 8));
-            result.put("joinUrl", "https://teams.microsoft.com/l/meetup-join/actual/meeting");
-            return result;
-        } else {
-            throw new RuntimeException("Failed to create Teams meeting: " + response.body());
-        }
-    }
-    
-    private String getAccessToken(String clientId, String clientSecret, String tenantId) throws Exception {
-        String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
-        
-        String requestBody = "client_id=" + clientId
-            + "&client_secret=" + clientSecret
-            + "&scope=https://graph.microsoft.com/.default"
-            + "&grant_type=client_credentials";
-            
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-            .uri(java.net.URI.create(tokenUrl))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody))
-            .build();
-            
-        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-        
-        if (response.statusCode() == 200) {
-            // Parse JSON and extract access_token
-            return "mock_access_token"; // Replace with actual JSON parsing
-        } else {
-            throw new RuntimeException("Failed to get access token: " + response.body());
-        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/meetings")
@@ -183,15 +113,14 @@ public class HRController {
         return ResponseEntity.ok(response);
     }
 
-
     @PostMapping("/candidates")
-    public ResponseEntity<CandidateProfile> saveCandidate(@RequestBody CandidateProfile candidate) {
+    public ResponseEntity<CandidateProfile> addCandidate(@RequestBody CandidateProfile candidate) {
         if(candidate==null){
             return ResponseEntity.badRequest().build();
         }
 
         CandidateProfile saved = candidateProfileRepository.save(candidate);
-        return ResponseEntity.ok(saved);  // return the saved object as JSON
+        return ResponseEntity.ok(saved);
     }
 
     @GetMapping("/logout")
@@ -222,4 +151,23 @@ public class HRController {
         return ResponseEntity.ok(responseBody);
     }
 
+    @PostMapping("/upload-resume")
+    public ResponseEntity<Map<String, Object>> uploadResume(@RequestParam("resume") MultipartFile file) {
+        try {
+            String resumeText = fileProcessingService.extractTextFromFile(file);
+            JsonNode parsedData = resumeParsingService.parseResume(resumeText);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", parsedData);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
 }

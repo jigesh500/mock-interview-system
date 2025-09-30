@@ -22,7 +22,8 @@ export const hrAPI = {
    // CORRECT - This sends query parameters
    assignCandidate: (meetingId: string, candidateEmail: string) =>
      api.post(`/hr/assign-candidate?meetingId=${meetingId}&candidateEmail=${candidateEmail}`),
-
+  uploadResume: (formData: FormData) => api.post('/hr/upload-resume', formData),
+  addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
 };
 
 // Candidate APIs

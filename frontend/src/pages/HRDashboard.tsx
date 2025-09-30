@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { hrAPI, authAPI } from '../services/api';
 import { clearAuth } from '../redux/reducers/auth/authSlice';
 import { useAppDispatch } from '../redux/hooks';
+import AddCandidateModal from '../Components/hr/AddCandidateModal';
 
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ const HRDashboard: React.FC = () => {
   const [candidateEmail, setCandidateEmail] = useState('');
   const [meetingId, setMeetingId] = useState('');
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
 
   const createMeeting = async () => {
     try {
@@ -87,12 +89,20 @@ const handleLogout = async () => {
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <button
-          onClick={createMeeting}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Create Teams Meeting
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={createMeeting}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Create Teams Meeting
+          </button>
+          <button
+            onClick={() => setShowAddCandidateModal(true)}
+            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+          >
+            Add New Candidate
+          </button>
+        </div>
 
         {meetingResult && (
           <div className="mt-4 p-4 bg-gray-100 rounded">
@@ -162,6 +172,12 @@ const handleLogout = async () => {
           )}
         </div>
       </div>
+
+      <AddCandidateModal
+        isOpen={showAddCandidateModal}
+        onClose={() => setShowAddCandidateModal(false)}
+        onCandidateAdded={loadCandidates}
+      />
     </div>
   );
 };

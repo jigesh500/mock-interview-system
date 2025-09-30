@@ -280,7 +280,7 @@
     <!--            </div>-->
 
     <div class="actions-bar">
-        <a href="/hr/add-candidate" class="btn btn-primary">
+        <a href="/hr/add-candidate" target="_blank" class="btn btn-primary">
             ➕ Add New Candidate
         </a>
         <input type="text" class="search-box" placeholder="Search candidates..." id="searchInput">
@@ -324,7 +324,7 @@
         <div class="empty-state" th:if="${candidates == null or candidates.empty}">
             <h3>No candidates found</h3>
             <p>Start by adding your first candidate to the system.</p>
-            <a href="/hr/add-candidate" class="btn btn-primary" style="margin-top: 20px;">➕ Add First Candidate</a>
+            <a href="/hr/add-candidate" target="_blank" class="btn btn-primary" style="margin-top: 20px;">➕ Add First Candidate</a>
         </div>
     </div>
 </div>

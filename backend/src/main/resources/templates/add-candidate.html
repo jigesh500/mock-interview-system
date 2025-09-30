@@ -183,13 +183,22 @@
 
     <div class="form-content">
         <div class="form-tips">
-            <h3>💡 Tips for Adding Candidates</h3>
+            <h3>💡 Resume Upload Feature</h3>
             <ul>
-                <li>Ensure all contact information is accurate</li>
-                <li>List relevant skills separated by commas</li>
-                <li>Include years of experience in the specified field</li>
-                <li>Add a brief description of the candidate's background</li>
+                <li>Upload resume (PDF, DOCX, TXT) to auto-fill candidate details</li>
+                <li>AI will extract name, email, skills, and experience automatically</li>
+                <li>You can still manually edit any field after upload</li>
+                <li>Supported formats: PDF, DOCX, TXT files</li>
             </ul>
+        </div>
+
+        <div class="resume-upload-section" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 style="margin-bottom: 15px; color: #495057;">📄 Upload Resume (Optional)</h3>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" style="flex: 1; min-width: 200px;">
+                <button type="button" id="uploadBtn" class="btn btn-primary" style="white-space: nowrap;">🚀 Parse Resume</button>
+            </div>
+            <div id="uploadStatus" style="margin-top: 10px; font-size: 14px;"></div>
         </div>
 
         <form th:action="@{/hr/save-candidate}" th:object="${candidate}" method="post">
@@ -247,5 +256,55 @@
         </form>
     </div>
 </div>
+<script>
+document.getElementById('uploadBtn').addEventListener('click', function() {
+    const fileInput = document.getElementById('resumeFile');
+    const statusDiv = document.getElementById('uploadStatus');
+    
+    if (!fileInput.files[0]) {
+        statusDiv.innerHTML = '<span style="color: #dc3545;">⚠️ Please select a resume file first</span>';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('resume', fileInput.files[0]);
+    
+    statusDiv.innerHTML = '<span style="color: #007bff;">🔄 Processing resume...</span>';
+    this.disabled = true;
+    
+    fetch('/hr/upload-resume', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const parsed = data.data;
+            
+            // Fill form fields
+            if (parsed.candidate_name) document.getElementById('candidateName').value = parsed.candidate_name;
+            if (parsed.candidate_email) document.getElementById('candidateEmail').value = parsed.candidate_email;
+            if (parsed.position_applied) document.getElementById('positionApplied').value = parsed.position_applied;
+            if (parsed.experience_years) document.getElementById('experienceYears').value = parsed.experience_years;
+            if (parsed.phone_number) document.getElementById('phoneNumber').value = parsed.phone_number;
+            if (parsed.location) document.getElementById('location').value = parsed.location;
+            if (parsed.skills && Array.isArray(parsed.skills)) {
+                document.getElementById('skills').value = parsed.skills.join(', ');
+            }
+            if (parsed.description) document.getElementById('description').value = parsed.description;
+            
+            statusDiv.innerHTML = '<span style="color: #28a745;">✅ Resume parsed successfully! Review and edit details as needed.</span>';
+        } else {
+            statusDiv.innerHTML = '<span style="color: #dc3545;">❌ Error: ' + (data.error || 'Failed to parse resume') + '</span>';
+        }
+    })
+    .catch(error => {
+        statusDiv.innerHTML = '<span style="color: #dc3545;">❌ Network error: ' + error.message + '</span>';
+    })
+    .finally(() => {
+        this.disabled = false;
+    });
+});
+</script>
 </body>
 </html>
