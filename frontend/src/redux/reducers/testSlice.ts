@@ -16,8 +16,10 @@ export interface TestState {
     error: string | null,
     markedQuestions:string[],
     visitedQuestions: string[];
+    answeredQuestions: string[]; // <-- Added
   isSubmitted: boolean;
   answers: { [questionId: string]: string | string[] }; 
+  reviewedQuestions: string[]; // <-- Added
 }
 
 const initialState:TestState={
@@ -28,8 +30,10 @@ const initialState:TestState={
     error:null,
     markedQuestions:[],
     visitedQuestions:["1"],
+    answeredQuestions:[], // <-- Added
     isSubmitted:false,
-    answers:{}
+    answers:{},
+    reviewedQuestions:[], // <-- Added
 }
 
 export const startTest = createAsyncThunk(
@@ -39,6 +43,7 @@ export const startTest = createAsyncThunk(
       const response = await axios.get('http://localhost:8081/interview/start', {
         withCredentials: true,
       });
+  console.log(response.data)
       return response.data; // { questions: Question[], userId: string }
     } catch (err: any) {
       return rejectWithValue('Failed to start interview');
@@ -52,22 +57,53 @@ initialState,
 reducers:{
     setCurrentQuestionIndex:(state,action:PayloadAction<number>)=>{
         state.currentQuestionIndex=action.payload;
+        const currentQuestion = state.questions[action.payload];
+        if (currentQuestion && !state.visitedQuestions.includes(currentQuestion.id)) {
+            state.visitedQuestions.push(currentQuestion.id);
+        }
     },
     saveAnswer(state,action:PayloadAction<{questionId:string,answer:string | string[]}>){
-        // state.questions[action.payload.questionId]=action.payload.answer;
-         const question = state.questions.find(q => q.id === action.payload.questionId);
-        if (question) {
-            // @ts-ignore
-            question.answer = action.payload.answer;
+        const prevAnswer = state.answers[action.payload.questionId];
+        state.answers[action.payload.questionId] = action.payload.answer;
+        // If already answered and answer is changed, mark as reviewed
+        if (
+            state.answeredQuestions.includes(action.payload.questionId) &&
+            prevAnswer !== undefined &&
+            prevAnswer !== action.payload.answer &&
+            !state.reviewedQuestions.includes(action.payload.questionId)
+        ) {
+            state.reviewedQuestions.push(action.payload.questionId);
         }
-    //     state.questions=state.questions.map(q=>{
-    //         if(q.id===action.payload.questionId){
-    //             return {...q,answer:action.payload.answer};
-    //         }       
-    //         return q;
-    //     });
-    // }
-}
+    },
+    markQuestionForReview:(state,action:PayloadAction<string>)=>{
+        if (!state.markedQuestions.includes(action.payload)) {
+            state.markedQuestions.push(action.payload);
+        }
+    },
+    unmarkQuestionForReview:(state,action:PayloadAction<string>)=>{
+        state.markedQuestions = state.markedQuestions.filter(id => id !== action.payload);
+    },
+    markQuestionAsAnswered:(state,action:PayloadAction<string>)=>{
+        if (!state.answeredQuestions.includes(action.payload)) {
+            state.answeredQuestions.push(action.payload);
+        }
+        // Remove from markedQuestions if present
+        state.markedQuestions = state.markedQuestions.filter(id => id !== action.payload);
+    },
+    nextQuestion:(state)=>{
+        if (state.currentQuestionIndex < state.questions.length - 1) {
+            state.currentQuestionIndex += 1;
+            const currentQuestion = state.questions[state.currentQuestionIndex];
+            if (currentQuestion && !state.visitedQuestions.includes(currentQuestion.id)) {
+                state.visitedQuestions.push(currentQuestion.id);
+            }
+        }
+    },
+    previousQuestion:(state)=>{
+        if (state.currentQuestionIndex > 0) {
+            state.currentQuestionIndex -= 1;
+        }
+    }
 },
 extraReducers: (builder) => {
     builder
@@ -79,6 +115,7 @@ extraReducers: (builder) => {
         state.isLoading = false;
         state.questions = action.payload.questions;
         state.userId = action.payload.userId;
+        state.sessionId=action.payload.sessionId;
       })
       .addCase(startTest.rejected, (state, action) => {
         state.isLoading = false;
@@ -87,5 +124,5 @@ extraReducers: (builder) => {
     }
 
 })
-export const { setCurrentQuestionIndex,saveAnswer } = testSlice.actions;
+export const { setCurrentQuestionIndex, saveAnswer, markQuestionForReview, unmarkQuestionForReview, nextQuestion, previousQuestion, markQuestionAsAnswered } = testSlice.actions;
 export default testSlice.reducer;

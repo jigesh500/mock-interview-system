@@ -8,9 +8,10 @@ import {
   FormControlLabel, 
   Radio, 
   FormControl,
-  Box 
+  Box,
+  Button
 } from '@mui/material';
-import { saveAnswer } from '../../redux/reducers/testSlice';
+import { saveAnswer, nextQuestion, previousQuestion, markQuestionForReview, unmarkQuestionForReview, markQuestionAsAnswered } from '../../redux/reducers/testSlice';
 
 const StartTest:React.FC = () => {
     const dispatch = useAppDispatch();
@@ -24,13 +25,13 @@ const StartTest:React.FC = () => {
     };
 
   return (
-     <Card className="h-full bg-white shadow-lg">
+     <Card className="h-full bg-white shadow-lg w-[1430px] mx-auto">
       <CardContent className="p-6">
         <Box className="mb-4">
           <Typography variant="h6" className="text-gray-600 mb-2">
             Question {currentQuestionIndex + 1} of {questions.length}
           </Typography>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="bg-gray-200 rounded-full h-2">
             <div 
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
@@ -38,7 +39,8 @@ const StartTest:React.FC = () => {
           </div>
         </Box>
 
-        <Typography variant="h5" className="mb-6 font-semibold leading-relaxed">
+        <Typography variant="h5" className="mb-6 font-semibold leading-relaxed"
+        sx={{ minHeight: 120 }} >
           {currentQuestion.question}
         </Typography>
 
@@ -69,6 +71,47 @@ const StartTest:React.FC = () => {
             ))}
           </RadioGroup>
         </FormControl>
+
+        <Box className="mt-8 flex justify-between items-center">
+          <Button
+            variant="outlined"
+            onClick={() => dispatch(previousQuestion())}
+            disabled={currentQuestionIndex === 0}
+            className="px-6 py-2"
+          >
+            Previous
+          </Button>
+
+          <Box className="flex gap-3">
+            <Button
+              variant="contained"
+              color="info"
+              onClick={() => {
+                dispatch(markQuestionForReview(currentQuestion.id));
+                dispatch(nextQuestion());
+              }}
+              disabled={currentQuestionIndex === questions.length - 1}
+              className="px-6 py-2"
+            >
+              Mark for Review & Next
+            </Button>
+
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => {
+                if (selectedAnswer) {
+                  dispatch(markQuestionAsAnswered(currentQuestion.id));
+                }
+                dispatch(nextQuestion());
+              }}
+              disabled={currentQuestionIndex === questions.length - 1}
+              className="px-6 py-2"
+            >
+              Next
+            </Button>
+          </Box>
+        </Box>
       </CardContent>
     </Card>
   )

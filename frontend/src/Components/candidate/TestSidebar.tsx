@@ -4,16 +4,19 @@ import { setCurrentQuestionIndex } from '../../redux/reducers/testSlice';
 
 const TestSidebar = () => {
      const dispatch = useAppDispatch();
-  const { questions, currentQuestionIndex, answers, markedQuestions, visitedQuestions } = useAppSelector((state) => state.test);
+  const { questions, currentQuestionIndex, answers, markedQuestions, visitedQuestions, answeredQuestions, reviewedQuestions } = useAppSelector((state) => state.test);
 
   const getQuestionStatus = (questionId: string, index: number) => {
-    const isAnswered = answers.hasOwnProperty(questionId);
+    const isAnswered = answeredQuestions.includes(questionId);
     const isMarked = markedQuestions.includes(questionId);
     const isVisited = visitedQuestions.includes(questionId);
+    const isReviewed = reviewedQuestions && reviewedQuestions.includes(questionId);
     const isCurrent = currentQuestionIndex === index;
 
     if (isCurrent) {
       return { color: 'secondary' as const, variant: 'filled' as const, className: 'ring-2 ring-blue-400' };
+    } else if (isReviewed) {
+      return { color: 'warning' as const, variant: 'filled' as const, className: '' }; // Orange for reviewed
     } else if (isAnswered) {
       return { color: 'success' as const, variant: 'filled' as const, className: '' };
     } else if (isMarked) {
@@ -29,21 +32,11 @@ const TestSidebar = () => {
   };
 
   const getStatusCounts = () => {
-    let answered = 0;
-    let marked = 0;
-    let notVisited = 0;
-    
-    questions.forEach((question) => {
-      if (answers.hasOwnProperty(question.id)) {
-        answered++;
-      } else if (markedQuestions.includes(question.id)) {
-        marked++;
-      } else if (!visitedQuestions.includes(question.id)) {
-        notVisited++;
-      }
-    });
-
-    return { answered, marked, notVisited };
+    let answered = answeredQuestions.length;
+    let marked = markedQuestions.length;
+    let reviewed = reviewedQuestions ? reviewedQuestions.length : 0;
+    let notVisited = questions.length - visitedQuestions.length;
+    return { answered, marked, reviewed, notVisited };
   };
 
   const statusCounts = getStatusCounts();
@@ -66,6 +59,13 @@ const TestSidebar = () => {
             </span>
             <span className="font-semibold">{statusCounts.answered}</span>
           </Box>
+          {/*<Box className="flex justify-between">
+            <span className="flex items-center">
+              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+              Reviewed
+            </span>
+            <span className="font-semibold">{statusCounts.reviewed}</span>
+          </Box>*/}
           <Box className="flex justify-between">
             <span className="flex items-center">
               <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
