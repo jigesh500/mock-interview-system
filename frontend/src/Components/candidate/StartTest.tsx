@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
+import Editor from "@monaco-editor/react";
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import {
   Card,
@@ -20,44 +21,53 @@ import {
   markQuestionAsAnswered
 } from '../../redux/reducers/testSlice';
 
-const StartTest:React.FC = () => {
-    const dispatch = useAppDispatch();
-    const {questions,currentQuestionIndex, answers} = useAppSelector((state) => state.test);
-    const currentQuestion = questions[currentQuestionIndex];
-    const selectedAnswer = answers ? answers[currentQuestion.id] : undefined;
+const StartTest: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { questions, currentQuestionIndex, answers } = useAppSelector((state) => state.test);
 
-    // Timer: 15 minutes
-    const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const currentQuestion = questions[currentQuestionIndex];
 
-    // Format seconds -> MM:SS
-    const formatTime = (seconds: number) => {
-      const minutes = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
+  // Prevent rendering if question is not ready
+  if (!currentQuestion) return <Typography>Loading question...</Typography>;
 
-    // Timer countdown
-    useEffect(() => {
-      if (timeLeft <= 0) {
-        alert("Time is up! Submitting your test...");
-        // TODO: dispatch submit action or navigate to result page
-        return;
-      }
+  // Ensure answer is always a string
+  const selectedAnswer = answers?.[currentQuestion.id] ?? "";
 
-      const timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
+  // Timer: 15 minutes
+  const [timeLeft, setTimeLeft] = useState(15 * 60);
 
-      return () => clearInterval(timer);
-    }, [timeLeft]);
+  // Language state for coding questions
+  const [currentLanguage, setCurrentLanguage] = useState('javascript');
 
-    const handleAnswerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const { value } = event.target;
-        dispatch(saveAnswer({ questionId: currentQuestion.id, answer: value }));
-    };
+  // Format seconds -> MM:SS
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Timer countdown
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      alert("Time is up! Submitting your test...");
+      // TODO: dispatch submit action or navigate to result page
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  // Handle MCQ change
+  const handleAnswerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch(saveAnswer({ questionId: currentQuestion.id, answer: event.target.value }));
+  };
 
   return (
-     <Card className="h-full bg-white shadow-lg w-[1430px] mx-auto">
+    <Card className="h-full bg-white shadow-lg w-[1430px] mx-auto">
       <CardContent className="p-6">
 
         {/* Header with Circular Timer */}
@@ -66,11 +76,10 @@ const StartTest:React.FC = () => {
             Question {currentQuestionIndex + 1} of {questions.length}
           </Typography>
 
-          {/* Circular Timer */}
           <Box sx={{ position: "relative", display: "inline-flex" }}>
             <CircularProgress
               variant="determinate"
-              value={(timeLeft / (20*60)) * 100}
+              value={(timeLeft / (15 * 60)) * 100}
               size={90}
               thickness={5}
               color={timeLeft <= 30 ? "error" : "primary"}
@@ -86,7 +95,7 @@ const StartTest:React.FC = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: "bold",
-                fontSize:"1.3rem",
+                fontSize: "1.5rem",
                 color: timeLeft <= 30 ? "red" : "inherit",
                 transition: "color 0.3s"
               }}
@@ -101,43 +110,70 @@ const StartTest:React.FC = () => {
           <div
             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
             style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-          ></div>
+          />
         </div>
 
         {/* Question */}
-        <Typography variant="h5" className="mb-6 font-semibold leading-relaxed"
-        sx={{ minHeight: 120 }} >
+        <Typography variant="h5" className="mb-6 font-semibold leading-relaxed" sx={{ minHeight: 120 }}>
           {currentQuestion.question}
         </Typography>
 
-        {/* Options */}
-        <FormControl component="fieldset" className="w-full">
-          <RadioGroup
-            value={selectedAnswer}
-            onChange={handleAnswerChange}
-            name={`question-${currentQuestion.id}`}
-          >
-            {currentQuestion?.options?.map((option, index) => (
-              <FormControlLabel
-                key={index}
-                value={option}
-                control={<Radio color="primary" />}
-                label={
-                  <Typography variant="body1" className="ml-2">
-                    {option}
-                  </Typography>
-                }
-                className="mb-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                sx={{
-                  margin: 0,
-                  width: '100%',
-                  border: selectedAnswer === option ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                }}
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
+        {/* Question Type Rendering */}
+        {currentQuestion.type?.toLowerCase() === 'mcq' ? (
+          <FormControl component="fieldset" className="w-full">
+            <RadioGroup
+              value={selectedAnswer}
+              onChange={handleAnswerChange}
+              name={`question-${currentQuestion.id}`}
+            >
+              {currentQuestion.options?.map((option, index) => (
+                <FormControlLabel
+                  key={index}
+                  value={option}
+                  control={<Radio color="primary" />}
+                  label={<Typography variant="body1" className="ml-2">{option}</Typography>}
+                  sx={{
+                    margin: 0,
+                    width: '100%',
+                    border: selectedAnswer === option ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                  }}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+        ) : currentQuestion.type?.toLowerCase() === 'coding' ? (
+          <Box className="w-full">
+            <Typography variant="subtitle1" className="mb-2 font-medium">Write your code:</Typography>
+
+            {/* Optional Language Selector
+            <select
+              value={currentLanguage}
+              onChange={(e) => setCurrentLanguage(e.target.value)}
+              className="mb-2 p-1 border rounded"
+            >
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select> */}
+
+            {/* Monaco Editor */}
+            <Editor
+              height="300px"
+              language={currentLanguage}
+              value={selectedAnswer}
+              onChange={(value) => dispatch(saveAnswer({ questionId: currentQuestion.id, answer: value || "" }))}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                automaticLayout: true
+              }}
+            />
+          </Box>
+        ) : (
+          <Typography color="error">Unknown question type</Typography>
+        )}
 
         {/* Navigation Buttons */}
         <Box className="mt-8 flex justify-between items-center">
@@ -182,7 +218,7 @@ const StartTest:React.FC = () => {
         </Box>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 export default StartTest;

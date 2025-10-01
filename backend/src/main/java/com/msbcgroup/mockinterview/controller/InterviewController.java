@@ -279,7 +279,7 @@ public class InterviewController {
                 
                     The questions must be a **mix of types**:
                      - 8 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
-                     - 2 Coding/Practical problems (short coding challenges, debugging tasks, or logic-based coding exercises).
+                     - 2 Coding/Practical problems (short coding challenges, logic-based coding exercises).
                 
                     Candidate Profile:
                     positionApplied: %s
