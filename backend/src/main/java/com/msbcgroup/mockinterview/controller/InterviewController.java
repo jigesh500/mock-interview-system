@@ -21,7 +21,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/interview")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = "http://localhost:5173")
 public class InterviewController {
 
     @Autowired
@@ -43,20 +43,6 @@ public class InterviewController {
     public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
         String email = principal.getAttribute("email");
 
-        //InterviewSession existingSession = sessionRepository.findByCandidateEmailAndCompleted(email, false);
-
-//        if (existingSession != null) {
-//            // Return existing session instead of creating new one
-//            ObjectMapper mapper = new ObjectMapper();
-//            List<Question> existingQuestions = mapper.readValue(existingSession.getQuestionsJson(),
-//                    new TypeReference<List<Question>>() {
-//                    });
-//
-//            Map<String, Object> response = new HashMap<>();
-//            response.put("questions", existingQuestions);
-//            response.put("sessionId", existingSession.getSessionId());
-//            return ResponseEntity.ok(response);
-//        }
 
         String sessionId = UUID.randomUUID().toString();
 
@@ -183,6 +169,7 @@ public class InterviewController {
         prompt.append("""
                 You are an experienced technical interviewer. Review the candidate's exam answers and generate a structured evaluation.
                 
+                If no answers are provided, the score must be 0.
                 For MCQ questions, evaluate if the selected option is correct.
                 For coding questions, evaluate logic, syntax, and approach.
                 

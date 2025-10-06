@@ -3,6 +3,8 @@ import Login from './pages/auth/Login';
 import TestInterface from './pages/protected/candidate/TestInterface';
 import HRDashboard from './pages/HRDashboard';
 import CandidateDashboard from './pages/CandidateDashboard';
+// import StartTest from './components/StartTest';
+import ThankYou from './components/ThankYou';
 
 const App = () => {
   return (
@@ -15,7 +17,7 @@ const App = () => {
         <Route path="/hr/dashboard" element={<HRDashboard />} />
         <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
         <Route path="/interview/start" element={<TestInterface/>} />
-        
+        <Route path="/thank-you" element={<ThankYou />} />
         {/* Default Route */}
         <Route path="/" element={<Navigate to="/auth/login" replace />} />
       </Routes>
