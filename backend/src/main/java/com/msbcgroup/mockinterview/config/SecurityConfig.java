@@ -33,7 +33,8 @@ public class SecurityConfig {
                         .maximumSessions(1)
                         .maxSessionsPreventsLogin(false))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/hr/**","/interview/**").permitAll()
+                        .requestMatchers("/api/monitoring/**").permitAll()
+                        .requestMatchers("/hr/**", "/interview/**", "/api/auth/**").authenticated()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl("http://localhost:5173/auth/login", true))
                 .logout(logout -> logout

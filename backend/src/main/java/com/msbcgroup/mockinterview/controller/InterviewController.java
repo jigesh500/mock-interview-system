@@ -21,7 +21,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/interview")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class InterviewController {
 
     @Autowired
@@ -41,6 +41,13 @@ public class InterviewController {
 
     @GetMapping("/start")
     public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
+
+        if (principal == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "User not authenticated");
+            return ResponseEntity.status(401).body(errorResponse);
+        }
+
         String email = principal.getAttribute("email");
 
 
@@ -72,7 +79,14 @@ public class InterviewController {
     @PostMapping("/submit-answers")
     public ResponseEntity<Map<String, Object>> submitAnswers(
             @RequestBody Map<String, String> answers,
-            @RequestParam("sessionId") String sessionId) throws JsonProcessingException {
+            @RequestParam("sessionId") String sessionId,
+            @AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
+
+        if (principal == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "User not authenticated");
+            return ResponseEntity.status(401).body(errorResponse);
+        }
 
 
         InterviewSession session = sessionRepository.findBySessionId(sessionId)

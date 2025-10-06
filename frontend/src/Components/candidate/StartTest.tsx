@@ -19,19 +19,39 @@ import {
   nextQuestion,
   previousQuestion,
   markQuestionForReview,
-  markQuestionAsAnswered
+  markQuestionAsAnswered,
+  startTest
 } from '../../redux/reducers/testSlice';
 
 const StartTest: React.FC = () => {
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
-
-  const currentQuestion = questions[currentQuestionIndex];
-  if (!currentQuestion) return <Typography>Loading question...</Typography>;
-
-  const selectedAnswer = answers?.[currentQuestion.id] ?? "";
+  
+  // Move useState hooks before early return
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+
+  useEffect(() => {
+    console.log("Questions length:", questions.length);
+    console.log("Questions array:", questions);
+    console.log("SessionId:", sessionId);
+    if (questions.length === 0) {
+      dispatch(startTest());
+    }
+  }, [dispatch, questions.length]);
+
+  // Add loading state check
+  if (questions.length === 0) {
+    return (
+      <Box className="flex justify-center items-center h-64">
+        <CircularProgress />
+        <Typography className="ml-4">Loading interview questions...</Typography>
+      </Box>
+    );
+  }
+  
+  const currentQuestion = questions[currentQuestionIndex];
+  const selectedAnswer = answers?.[currentQuestion.id] ?? "";
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -52,12 +72,14 @@ const handleSubmit = useCallback(async () => {
     const response = await axios.post(
       'http://localhost:8081/interview/submit-answers',
       answersPayload,
-      { params: { sessionId: sessionId } }
+      { 
+        params: { sessionId: sessionId },
+        withCredentials: true
+      }
     );
 
     if (response.data.status === "success") {
       alert("Interview submitted successfully!");
-      setIsExamActive(false);
       window.location.href = '/thank-you';
     }
   } catch (error) {

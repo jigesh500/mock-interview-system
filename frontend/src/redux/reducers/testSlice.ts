@@ -10,6 +10,7 @@ export interface Question {
 
 export interface TestState {
     userId:string,
+    sessionId:string,
     questions: Question[],
     currentQuestionIndex: number,
     isLoading: boolean,
@@ -24,6 +25,7 @@ export interface TestState {
 
 const initialState:TestState={
     userId:"",
+    sessionId:"",
     questions:[],
     currentQuestionIndex:0,
     isLoading:false,
@@ -111,11 +113,10 @@ extraReducers: (builder) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(startTest.fulfilled, (state, action: PayloadAction<{ questions: Question[]; userId: string }>) => {
+      .addCase(startTest.fulfilled, (state, action: PayloadAction<{ questions: Question[]; sessionId: string }>) => {
         state.isLoading = false;
         state.questions = action.payload.questions;
-        state.userId = action.payload.userId;
-        state.sessionId=action.payload.sessionId;
+        state.sessionId = action.payload.sessionId;
       })
       .addCase(startTest.rejected, (state, action) => {
         state.isLoading = false;

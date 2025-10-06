@@ -18,6 +18,7 @@ public class MonitoringEvent {
     private String candidateEmail;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 25)
     private EventType eventType;
 
     private String description;
@@ -28,12 +29,12 @@ public class MonitoringEvent {
         FACE_NOT_DETECTED,
         MULTIPLE_FACES,
         LOOKING_AWAY,
+        FACE_DETECTED,
         TAB_SWITCH,
         WINDOW_BLUR,
         SUSPICIOUS_ACTIVITY,
-        EXAM_START,
-        EXAM_END,
-        QUESTION_ANSWERED
+        INTERVIEW_START,
+        INTERVIEW_END,
     }
 
     public MonitoringEvent() {
