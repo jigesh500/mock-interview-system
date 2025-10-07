@@ -3,6 +3,7 @@ import Editor from "@monaco-editor/react";
 import axios from 'axios';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import { useAuth } from '../../../hooks/useAuth';
+import { useExamSecurity } from '../../../hooks/useExamSecurity';
 import {
   Card,
   CardContent,
@@ -35,14 +36,21 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
   const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+
+  // Security violation handler
+  const handleSecurityViolation = useCallback(async (type: string, message: string) => {
+    console.warn('Security violation:', type, message);
+    //alert(`⚠️ Security Alert: ${message}`);
+  }, []);
+
+  const { activateSecurity } = useExamSecurity(handleSecurityViolation);
 
   // Submit function
   const handleSubmit = useCallback(async () => {
     const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim() !== "");
-    
+
     if (!allQuestionsAnswered) {
       alert("Please answer all questions before submitting.");
       return;
@@ -57,7 +65,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       const response = await axios.post(
         'http://localhost:8081/interview/submit-answers',
         answersPayload,
-        { 
+        {
           params: { sessionId: sessionId },
           withCredentials: true
         }
@@ -80,6 +88,13 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     }
   }, [dispatch, questions.length, isAuthenticated]);
 
+  // Activate exam security when test starts
+  useEffect(() => {
+    if (isAuthenticated && questions.length > 0) {
+      activateSecurity();
+    }
+  }, [isAuthenticated, questions.length, activateSecurity]);
+
   useEffect(() => {
     if (timeLeft <= 0) {
       alert("Time is up! Submitting your test...");
@@ -91,7 +106,6 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
 
-  // NOW SAFE TO HAVE EARLY RETURNS
   if (authLoading) {
     return (
       <Box className="flex justify-center items-center h-64">
@@ -143,13 +157,13 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
             <CameraMonitor sessionId={sessionId} />
           </Box>
         </Box>
-        
+
         {/* Sidebar - Below Camera */}
         <Box className="flex-1">
           <TestSidebar />
         </Box>
       </Box>
-      
+
       {/* Main Content */}
       <Box className="flex-1 p-4">
         <Card className="h-full bg-white shadow-lg">

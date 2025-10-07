@@ -33,8 +33,16 @@ export const initiateAuth0Login = createAsyncThunk(
   'auth/initiateAuth0Login',
   async (_, { rejectWithValue }) => {
     try {
-      // Redirect to Auth0 login
-      window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
+     const loginWindow = window.open(
+             'http://localhost:8081/oauth2/authorization/auth0',
+             'loginWindow',
+             'width=2000,height=1000,scrollbars=yes,resizable=yes'
+           );
+
+           if (!loginWindow) {
+             // Fallback to same window if popup blocked
+             window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
+           }
       return null;
     } catch (err: any) {
       return rejectWithValue('Failed to initiate login');

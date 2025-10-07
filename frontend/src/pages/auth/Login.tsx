@@ -31,8 +31,17 @@ const Login = () => {
   }, [isAuthenticated, user, loading, navigate, location.state, hasCheckedAuth]);
 
   const handleLogin = () => {
-    login(); 
-  };
+    const loginWindow = window.open(
+        'http://localhost:8081/oauth2/authorization/auth0',
+        'loginWindow',
+        'width=2000,height=1000,scrollbars=yes,resizable=yes'
+      );
+
+      // Fallback if popup blocked
+      if (!loginWindow) {
+        login();
+      }
+    };
 
   if (loading) {
     return (

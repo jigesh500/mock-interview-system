@@ -20,7 +20,7 @@ const ViolationPage: React.FC = () => {
           <Box className="bg-red-100 p-4 rounded-lg mb-6">
             <Warning sx={{ color: 'error.main', mr: 1 }} />
             <Typography variant="body1" className="text-red-800">
-              <strong>Violation Detected:</strong> Your interview has been automatically terminated due to multiple  violations policy.
+              <strong>Violation Detected:</strong> Your interview has been automatically terminated due to multiple policy violations .
             </Typography>
           </Box>
           

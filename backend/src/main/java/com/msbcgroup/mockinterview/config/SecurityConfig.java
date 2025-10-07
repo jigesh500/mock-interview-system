@@ -29,20 +29,23 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                        .invalidSessionUrl("/oauth2/authorization/auth0")
-                        .maximumSessions(1)
-                        .maxSessionsPreventsLogin(false))
+                        .invalidSessionUrl("/oauth2/authorization/auth0") // redirect if session invalid
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/monitoring/**").permitAll()
                         .requestMatchers("/hr/**", "/interview/**", "/api/auth/**").authenticated()
-                        .anyRequest().authenticated())
-                .oauth2Login(oauth2 -> oauth2.defaultSuccessUrl("http://localhost:5173/auth/login", true))
+                        .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .defaultSuccessUrl("http://localhost:5173/auth/login", true)
+                )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("https://dev-wbdogywioc218nsb.us.auth0.com/v2/logout?returnTo=http://localhost:5173&client_id=" + clientId)
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID", "remember-me", "auth0")
-                        .clearAuthentication(true));
+                        .clearAuthentication(true)
+                );
 
         return http.build();
     }

@@ -30,7 +30,7 @@ const CandidateDashboard: React.FC = () => {
 
       // Open Teams meeting
       window.open(teamsUrl, '_blank');
-      
+
       // Store session ID and show exam button
       setSessionId(newSessionId);
     } catch (error) {

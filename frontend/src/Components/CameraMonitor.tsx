@@ -1,12 +1,61 @@
-// src/components/CameraMonitor.jsx
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as faceapi from 'face-api.js';
 import { useAuth } from '../hooks/useAuth';
+import { useExamSecurity } from '../hooks/useExamSecurity';
 
-const CameraMonitor = ({ sessionId }) => {
-  const videoRef = useRef(null);
-  const [status, setStatus] = useState("Loading...");
-  const { user, isAuthenticated, loading: isLoading } = useAuth();
+interface CameraMonitorProps {
+  sessionId: string;
+}
+
+interface User {
+  email?: string;
+  [key: string]: any;
+}
+
+const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [status, setStatus] = useState<string>("Loading...");
+  const { user, isAuthenticated, loading: isLoading } = useAuth() as {
+    user: User | null;
+    isAuthenticated: boolean;
+    loading: boolean;
+  };
+
+  const handleSecurityViolation = useCallback(async (type: string, message: string) => {
+    if (!isAuthenticated || !user?.email || !sessionId) return;
+
+    try {
+      await fetch('http://localhost:8081/api/monitoring/log-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sessionId,
+          candidateEmail: user.email,
+          eventType: type,
+          description: message,
+          metadata: JSON.stringify({ timestamp: new Date().toISOString() })
+        })
+      });
+    } catch (err) {
+      console.error('Error logging security violation:', err);
+    }
+  }, [isAuthenticated, user?.email, sessionId]);
+
+  const { enterFullscreen } = useExamSecurity(handleSecurityViolation);
+//   useEffect(() => {
+//       if (isAuthenticated && user?.email && sessionId && interviewStarted) {
+//         // Activate exam security mode
+//         enterFullscreen();
+//       }
+//     }, [isAuthenticated, user?.email, sessionId, interviewStarted, enterFullscreen]);
+
+  // State tracking for event-based monitoring
+  const [lastEventType, setLastEventType] = useState<string | null>(null);
+  const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
+  const [multipleFaceViolations, setMultipleFaceViolations] = useState<number>(0);
+  const [noFaceViolations, setNoFaceViolations] = useState<number>(0);
+  const [isViolated, setIsViolated] = useState<boolean>(false);
 
   // Load face-api.js models
   useEffect(() => {
@@ -23,12 +72,13 @@ const CameraMonitor = ({ sessionId }) => {
     const startVideo = () => {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
-          videoRef.current.srcObject = stream;
-          
-          videoRef.current.onloadeddata = () => {
-            console.log('Video loaded and ready for detection');
-            setStatus('📹 Camera Ready');
-          };
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.onloadeddata = () => {
+              console.log('Video loaded and ready for detection');
+              setStatus('📹 Camera Ready');
+            };
+          }
         })
         .catch(err => {
           console.error("Error accessing camera:", err);
@@ -38,13 +88,6 @@ const CameraMonitor = ({ sessionId }) => {
 
     loadModels();
   }, []);
-
-  // State tracking for event-based monitoring
-  const [lastEventType, setLastEventType] = useState(null);
-  const [interviewStarted, setInterviewStarted] = useState(false);
-  const [multipleFaceViolations, setMultipleFaceViolations] = useState(0);
-  const [noFaceViolations, setNoFaceViolations] = useState(0);
-  const [isViolated, setIsViolated] = useState(false);
 
   // Log interview start event
   useEffect(() => {
@@ -70,7 +113,7 @@ const CameraMonitor = ({ sessionId }) => {
           console.error("Error logging interview start:", err);
         }
       };
-      
+
       logInterviewStart();
     }
   }, [isAuthenticated, user?.email, sessionId, interviewStarted]);
@@ -91,31 +134,17 @@ const CameraMonitor = ({ sessionId }) => {
           inputSize: 224,
           scoreThreshold: 0.3
         });
-    const detections = await faceapi.detectAllFaces(videoRef.current, options);
-    const faceDetected = detections.length > 0;
-    const multipleDetected = detections.length > 1;
+        const detections = await faceapi.detectAllFaces(videoRef.current, options);
+        const faceDetected = detections.length > 0;
+        const multipleDetected = detections.length > 1;
 
-//     const validFaces = detections.filter(detection => {
-//       const box = detection.box;
-//       const minFaceSize = 80;     // Minimum face size
-//       const minConfidence = 0.75; // High confidence
-//
-//       return detection.score >= minConfidence &&
-//              box.width >= minFaceSize &&
-//              box.height >= minFaceSize;
-//     });
-//
-//         const detections = await faceapi.detectAllFaces(videoRef.current, options);
-//         const faceDetected = detections.length > 0;
-//         const multipleDetected = detections.length > 1;
-        
-        let currentEventType;
-        let currentStatus;
-        
-        const terminateInterview = async (reason, count) => {
+        let currentEventType: string;
+        let currentStatus: string;
+
+        const terminateInterview = async (reason: string, count: number) => {
           setIsViolated(true);
-          alert(`❌ INTERVIEW TERMINATED: Too many ${reason === 'MULTIPLE_FACES' ? 'multiple face' : 'face detection'} violations.`);
-          
+          alert(`❌ INTERVIEW TERMINATED: Due to multiple violations`);
+
           try {
             await fetch('http://localhost:8081/api/monitoring/log-event', {
               method: 'POST',
@@ -132,7 +161,7 @@ const CameraMonitor = ({ sessionId }) => {
           } catch (err) {
             console.error('Error logging termination:', err);
           }
-          
+
           setTimeout(() => {
             window.location.href = '/violation';
           }, 2000);
@@ -141,11 +170,11 @@ const CameraMonitor = ({ sessionId }) => {
         if (multipleDetected) {
           currentEventType = "MULTIPLE_FACES";
           currentStatus = "⚠️ Multiple Faces Detected";
-          
+
           if (lastEventType !== "MULTIPLE_FACES" && !isViolated) {
             const newCount = multipleFaceViolations + 1;
             setMultipleFaceViolations(newCount);
-            
+
             if (newCount === 1) {
               alert("⚠️ WARNING: Multiple faces detected! Please ensure only you are visible.");
             } else if (newCount === 2) {
@@ -163,11 +192,11 @@ const CameraMonitor = ({ sessionId }) => {
         } else {
           currentEventType = "FACE_NOT_DETECTED";
           currentStatus = "⚠️ Face Not Detected";
-          
+
           if (lastEventType !== "FACE_NOT_DETECTED" && !isViolated) {
             const newCount = noFaceViolations + 1;
             setNoFaceViolations(newCount);
-            
+
             if (newCount === 1) {
               alert("⚠️ WARNING: Face not detected! Please position yourself in front of the camera.");
             } else if (newCount === 2) {
@@ -180,7 +209,7 @@ const CameraMonitor = ({ sessionId }) => {
             }
           }
         }
-        
+
         setStatus(currentStatus);
 
         // Only log if event type changed
@@ -190,8 +219,8 @@ const CameraMonitor = ({ sessionId }) => {
             candidateEmail: user.email,
             eventType: currentEventType,
             description: currentStatus,
-            metadata: JSON.stringify({ 
-              faceCount: detections.length, 
+            metadata: JSON.stringify({
+              faceCount: detections.length,
               confidence: detections[0]?.score || 0
             })
           };
@@ -203,7 +232,7 @@ const CameraMonitor = ({ sessionId }) => {
               credentials: 'include',
               body: JSON.stringify(eventData)
             });
-            
+
             setLastEventType(currentEventType);
             console.log('State change logged:', currentEventType);
           } catch (err) {
@@ -221,7 +250,7 @@ const CameraMonitor = ({ sessionId }) => {
 
   return (
     <div className="text-center">
-      <video ref={videoRef} autoPlay muted width="200" height="150" className="rounded" />
+      <video ref={videoRef} autoPlay muted width={200} height={150} className="rounded" />
       <div className={`text-xs mt-1 px-2 py-1 rounded ${
         status.includes('✅') ? 'bg-green-100 text-green-700' : 
         status.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' : 
@@ -229,7 +258,12 @@ const CameraMonitor = ({ sessionId }) => {
       }`}>
         {status}
       </div>
-      {/* Show auth status */}
+      <button 
+        onClick={enterFullscreen} 
+        className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+      >
+        🔒 Enter Exam Mode
+      </button>
       {!isAuthenticated && (
         <div className="text-xs text-red-500 mt-1">
           Please login to enable monitoring
