@@ -28,13 +28,12 @@ public class MonitoringEvent {
     public enum EventType {
         FACE_NOT_DETECTED,
         MULTIPLE_FACES,
-        LOOKING_AWAY,
         FACE_DETECTED,
         TAB_SWITCH,
         WINDOW_BLUR,
-        SUSPICIOUS_ACTIVITY,
         INTERVIEW_START,
         INTERVIEW_END,
+        INTERVIEW_TERMINATED
     }
 
     public MonitoringEvent() {

@@ -42,6 +42,9 @@ const CameraMonitor = ({ sessionId }) => {
   // State tracking for event-based monitoring
   const [lastEventType, setLastEventType] = useState(null);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const [multipleFaceViolations, setMultipleFaceViolations] = useState(0);
+  const [noFaceViolations, setNoFaceViolations] = useState(0);
+  const [isViolated, setIsViolated] = useState(false);
 
   // Log interview start event
   useEffect(() => {
@@ -86,25 +89,96 @@ const CameraMonitor = ({ sessionId }) => {
       try {
         const options = new faceapi.TinyFaceDetectorOptions({
           inputSize: 224,
-          scoreThreshold: 0.5
+          scoreThreshold: 0.3
         });
-        
-        const detections = await faceapi.detectAllFaces(videoRef.current, options);
-        const faceDetected = detections.length > 0;
-        const multipleDetected = detections.length > 1;
+    const detections = await faceapi.detectAllFaces(videoRef.current, options);
+    const faceDetected = detections.length > 0;
+    const multipleDetected = detections.length > 1;
+
+//     const validFaces = detections.filter(detection => {
+//       const box = detection.box;
+//       const minFaceSize = 80;     // Minimum face size
+//       const minConfidence = 0.75; // High confidence
+//
+//       return detection.score >= minConfidence &&
+//              box.width >= minFaceSize &&
+//              box.height >= minFaceSize;
+//     });
+//
+//         const detections = await faceapi.detectAllFaces(videoRef.current, options);
+//         const faceDetected = detections.length > 0;
+//         const multipleDetected = detections.length > 1;
         
         let currentEventType;
         let currentStatus;
         
+        const terminateInterview = async (reason, count) => {
+          setIsViolated(true);
+          alert(`❌ INTERVIEW TERMINATED: Too many ${reason === 'MULTIPLE_FACES' ? 'multiple face' : 'face detection'} violations.`);
+          
+          try {
+            await fetch('http://localhost:8081/api/monitoring/log-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                sessionId,
+                candidateEmail: user.email,
+                eventType: 'INTERVIEW_TERMINATED',
+                description: `Interview terminated due to ${reason} violations`,
+                metadata: JSON.stringify({ violationCount: count, reason })
+              })
+            });
+          } catch (err) {
+            console.error('Error logging termination:', err);
+          }
+          
+          setTimeout(() => {
+            window.location.href = '/violation';
+          }, 2000);
+        };
+
         if (multipleDetected) {
           currentEventType = "MULTIPLE_FACES";
           currentStatus = "⚠️ Multiple Faces Detected";
+          
+          if (lastEventType !== "MULTIPLE_FACES" && !isViolated) {
+            const newCount = multipleFaceViolations + 1;
+            setMultipleFaceViolations(newCount);
+            
+            if (newCount === 1) {
+              alert("⚠️ WARNING: Multiple faces detected! Please ensure only you are visible.");
+            } else if (newCount === 2) {
+              alert("⚠️ SECOND WARNING: Multiple faces detected again!");
+            } else if (newCount === 3) {
+              alert("🚨 FINAL WARNING: One more multiple face violation will terminate your interview!");
+            } else if (newCount >= 4) {
+              terminateInterview('MULTIPLE_FACES', newCount);
+              return;
+            }
+          }
         } else if (faceDetected) {
           currentEventType = "FACE_DETECTED";
           currentStatus = "✅ Monitoring Active";
         } else {
           currentEventType = "FACE_NOT_DETECTED";
           currentStatus = "⚠️ Face Not Detected";
+          
+          if (lastEventType !== "FACE_NOT_DETECTED" && !isViolated) {
+            const newCount = noFaceViolations + 1;
+            setNoFaceViolations(newCount);
+            
+            if (newCount === 1) {
+              alert("⚠️ WARNING: Face not detected! Please position yourself in front of the camera.");
+            } else if (newCount === 2) {
+              alert("⚠️ SECOND WARNING: Face still not detected! Ensure proper lighting and camera position.");
+            } else if (newCount === 3) {
+              alert("🚨 FINAL WARNING: One more face detection failure will terminate your interview!");
+            } else if (newCount >= 4) {
+              terminateInterview('FACE_NOT_DETECTED', newCount);
+              return;
+            }
+          }
         }
         
         setStatus(currentStatus);
@@ -143,7 +217,7 @@ const CameraMonitor = ({ sessionId }) => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [sessionId, user, isAuthenticated, isLoading, interviewStarted, lastEventType]);
+  }, [sessionId, user, isAuthenticated, isLoading, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations, isViolated]);
 
   return (
     <div className="text-center">

@@ -135,6 +135,7 @@ public class InterviewController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "success");
         response.put("message", "Interview submitted successfully");
+        response.put("sessionId", sessionId);
 
         return ResponseEntity.ok(response);
     }

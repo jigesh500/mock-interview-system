@@ -9,7 +9,7 @@ import org.springframework.stereotype.Controller;
 
 import java.util.Map;
 
-@Controller
+//@Controller
 public class WebSocketController {
 
     @Autowired

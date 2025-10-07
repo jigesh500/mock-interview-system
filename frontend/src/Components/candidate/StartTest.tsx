@@ -79,6 +79,19 @@ const handleSubmit = useCallback(async () => {
     );
 
     if (response.data.status === "success") {
+      // Log interview end event
+      try {
+        await axios.post('http://localhost:8081/api/monitoring/log-event', {
+          sessionId,
+          candidateEmail: 'candidate@email.com', // Will be handled by backend auth
+          eventType: 'INTERVIEW_END',
+          description: 'Interview completed successfully',
+          metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+        }, { withCredentials: true });
+      } catch (err) {
+        console.error('Error logging interview end:', err);
+      }
+      
       alert("Interview submitted successfully!");
       window.location.href = '/thank-you';
     }
