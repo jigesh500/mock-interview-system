@@ -31,11 +31,7 @@ const Login = () => {
   }, [isAuthenticated, user, loading, navigate, location.state, hasCheckedAuth]);
 
   const handleLogin = () => {
-    const loginWindow = window.open(
-        'http://localhost:8081/oauth2/authorization/auth0',
-        'loginWindow',
-        'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no'
-      );
+    login();
 
       // Fallback if popup blocked
       if (!loginWindow) {

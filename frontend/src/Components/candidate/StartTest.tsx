@@ -85,7 +85,7 @@ const handleSubmit = useCallback(async () => {
       try {
         await axios.post('http://localhost:8081/api/monitoring/log-event', {
           sessionId,
-          candidateEmail: 'candidate@email.com', // Will be handled by backend auth
+          candidateEmail: 'hardcodeemail@email.com', // Will be handled by backend auth
           eventType: 'INTERVIEW_END',
           description: 'Interview completed successfully',
           metadata: JSON.stringify({ submittedAt: new Date().toISOString() })

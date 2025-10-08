@@ -40,7 +40,9 @@ const CandidateDashboard: React.FC = () => {
 
   const startExam = () => {
     if (sessionId) {
-      navigate(`/interview/start?sessionId=${sessionId}`);
+      const examUrl = `${window.location.origin}/interview/start?sessionId=${sessionId}`;
+          window.open(examUrl, '_blank',
+              'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
     }
   };
 
