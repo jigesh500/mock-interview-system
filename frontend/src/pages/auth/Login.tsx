@@ -32,12 +32,7 @@ const Login = () => {
 
   const handleLogin = () => {
     login();
-
-      // Fallback if popup blocked
-      if (!loginWindow) {
-        login();
-      }
-    };
+  };
 
   if (loading) {
     return (

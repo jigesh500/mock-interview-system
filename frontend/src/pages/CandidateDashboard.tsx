@@ -43,6 +43,10 @@ const CandidateDashboard: React.FC = () => {
       const examUrl = `${window.location.origin}/interview/start?sessionId=${sessionId}`;
           window.open(examUrl, '_blank',
               'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
+              setTimeout(() => {
+                    loadInterviewInfo();
+                    setSessionId(null);
+                  }, 2000);
     }
   };
 
@@ -55,7 +59,7 @@ const CandidateDashboard: React.FC = () => {
       dispatch(clearAuth());
       localStorage.clear();
       sessionStorage.clear();
-      navigate('/', { replace: true });
+      navigate('/thank-you2', { replace: true });
     }
   };
 

@@ -33,7 +33,6 @@ public class MonitoringController {
             event.setCandidateEmail((String) eventData.get("candidateEmail"));
             event.setDescription((String) eventData.getOrDefault("description", ""));
             event.setMetadata((String) eventData.getOrDefault("metadata", ""));
-
             // Validate and set EventType
             String typeStr = (String) eventData.get("eventType");
             try {

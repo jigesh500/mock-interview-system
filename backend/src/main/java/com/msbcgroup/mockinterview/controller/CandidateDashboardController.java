@@ -35,9 +35,19 @@ public class CandidateDashboardController {
 
         Map<String, Object> response = new HashMap<>();
         if (meeting != null) {
-            response.put("hasInterview", true);
-            response.put("meetingId", meeting.getMeetingId());
-            response.put("meetingUrl", meeting.getMeetingUrl());
+            // Check if interview session already started
+            List<InterviewSession> sessions = sessionRepository.findByCandidateEmail(candidateEmail);
+            boolean hasStartedSession = sessions.stream()
+                    .anyMatch(s -> s.getMeetingId() != null && s.getMeetingId().equals(meeting.getMeetingId()));
+
+            if (hasStartedSession) {
+                response.put("hasInterview", false);
+                response.put("message", "No interview scheduled");
+            } else {
+                response.put("hasInterview", true);
+                response.put("meetingId", meeting.getMeetingId());
+                response.put("meetingUrl", meeting.getMeetingUrl());
+            }
         } else {
             response.put("hasInterview", false);
             response.put("message", "No interview scheduled");

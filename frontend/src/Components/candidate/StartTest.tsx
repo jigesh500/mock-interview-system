@@ -1,6 +1,7 @@
 import React, { useEffect, useState ,useCallback} from 'react';
 import Editor from "@monaco-editor/react";
 import axios from 'axios';
+import { useAuth } from '../hooks/useAuth';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import {
   Card,
@@ -24,7 +25,13 @@ import {
   startTest
 } from '../../redux/reducers/testSlice';
 
+
+
 const StartTest: React.FC = () => {
+    const { user, isAuthenticated } = useAuth() as {
+        user: { email?: string } | null;
+        isAuthenticated: boolean;
+      };
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
   
@@ -82,18 +89,25 @@ const handleSubmit = useCallback(async () => {
 
     if (response.data.status === "success") {
       // Log interview end event
-      try {
-        await axios.post('http://localhost:8081/api/monitoring/log-event', {
-          sessionId,
-          candidateEmail: 'hardcodeemail@email.com', // Will be handled by backend auth
-          eventType: 'INTERVIEW_END',
-          description: 'Interview completed successfully',
-          metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
-        }, { withCredentials: true });
-      } catch (err) {
-        console.error('Error logging interview end:', err);
+      if(isAuthenticated && user?.email && sessionId){
+        try {
+          await fetch('http://localhost:8081/api/monitoring/log-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              sessionId,
+              candidateEmail: user.email,
+              eventType: 'INTERVIEW_END',
+              description: 'Interview completed successfully',
+              metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+            })
+          });
+          await new Promise(resolve => setTimeout(resolve, 700));
+        } catch (err) {
+          console.error('Error logging interview end:', err);
+        }
       }
-      
       alert("Interview submitted successfully!");
       window.location.href = '/thank-you';
     }
@@ -101,7 +115,8 @@ const handleSubmit = useCallback(async () => {
     console.error("Error submitting interview:", error);
     alert("Failed to submit interview. Please try again.");
   }
-}, [questions, answers, sessionId]);
+}, [questions, answers, sessionId, user, isAuthenticated]);
+
 
   // Timer countdown
   useEffect(() => {
