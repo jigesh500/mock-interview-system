@@ -1,7 +1,7 @@
 // frontend/src/hooks/useExamSecurity.ts
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
-type ViolationType = 'RIGHT_CLICK' | 'KEYBOARD_SHORTCUT' | 'TAB_SWITCH';
+type ViolationType = 'RIGHT_CLICK' | 'KEYBOARD_SHORTCUT' | 'TAB_SWITCH' | 'WINDOW_RESIZE';
 
 interface UseExamSecurityReturn {
   activateSecurity: () => void;
@@ -10,9 +10,11 @@ interface UseExamSecurityReturn {
 export const useExamSecurity = (
   onViolation?: (type: ViolationType, message: string) => void
 ): UseExamSecurityReturn => {
+  const tabSwitchViolations = useRef(0);
+  const tabMonitoringActive = useRef(false);
+  const isTabHidden = useRef(false);
 
   const handleViolation = useCallback((type: ViolationType, message: string) => {
-    // Silent logging only, no alerts
     console.log('Security action blocked:', type, message);
     onViolation?.(type, message);
   }, [onViolation]);
@@ -33,6 +35,7 @@ export const useExamSecurity = (
         (e.ctrlKey && e.key === 'a'),
         (e.ctrlKey && e.key === 'c'),
         (e.ctrlKey && e.key === 'v'),
+        (e.ctrlKey && e.key === 'r'),
         (e.altKey && e.key === 'Tab')
       ];
 
@@ -40,6 +43,31 @@ export const useExamSecurity = (
         e.preventDefault();
         handleViolation('KEYBOARD_SHORTCUT', `Blocked: ${e.key}`);
       }
+    };
+
+    const terminateInterview = async (reason: string, count: number) => {
+      alert('❌ INTERVIEW TERMINATED: Due to multiple tab switching violations');
+      
+      try {
+        await fetch('http://localhost:8081/api/monitoring/log-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sessionId: 'current-session',
+            candidateEmail: 'candidate@email.com',
+            eventType: 'INTERVIEW_TERMINATED',
+            description: 'Interview terminated due to tab switching violations',
+            metadata: JSON.stringify({ violationCount: count, reason })
+          })
+        });
+      } catch (err) {
+        console.error('Error logging termination:', err);
+      }
+      
+      setTimeout(() => {
+        window.location.href = '/violation';
+      }, 2000);
     };
 
     const handleSelectStart = (e: Event) => {
@@ -50,9 +78,43 @@ export const useExamSecurity = (
       e.preventDefault();
     };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleViolation('TAB_SWITCH', 'Tab switching detected');
+    const preventResize = () => {
+      window.resizeTo(screen.availWidth, screen.availHeight);
+      window.moveTo(0, 0);
+    };
+
+    const handleResize = () => {
+      preventResize();
+      handleViolation('WINDOW_RESIZE', 'Window resize blocked');
+    };
+
+    const handleVisibilityChange = async () => {
+      if (!tabMonitoringActive.current) return;
+      
+      if (document.hidden && !isTabHidden.current) {
+        // Tab just became hidden - count violation
+        isTabHidden.current = true;
+        const newCount = tabSwitchViolations.current + 1;
+        tabSwitchViolations.current = newCount;
+        
+        console.log(`Tab switch #${newCount} detected`);
+        
+        handleViolation('TAB_SWITCH', `Tab switching detected (${newCount}/3)`);
+        
+        if (newCount === 1) {
+          alert("⚠️ WARNING: Tab switching detected! Please stay on this tab.");
+        } else if (newCount === 2) {
+          alert("⚠️ SECOND WARNING: Tab switching detected again!");
+        } else if (newCount === 3) {
+          alert("🚨 FINAL WARNING: One more tab switch will terminate your interview!");
+        } else if (newCount >= 4) {
+          terminateInterview('TAB_SWITCH', newCount);
+          return;
+        }
+      } else if (!document.hidden && isTabHidden.current) {
+        // Tab became visible again
+        isTabHidden.current = false;
+        console.log('Tab focused - violation count:', tabSwitchViolations.current);
       }
     };
 
@@ -74,18 +136,30 @@ export const useExamSecurity = (
     `;
     document.head.appendChild(style);
 
+    // Force fullscreen and start monitoring
+    const tabMonitoringTimer = setTimeout(() => {
+      tabSwitchViolations.current = 0;
+      tabMonitoringActive.current = true;
+      isTabHidden.current = false;
+      preventResize(); // Force fullscreen
+      console.log('Tab switching monitoring activated');
+    }, 10000);
+
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('selectstart', handleSelectStart);
     document.addEventListener('dragstart', handleDragStart);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('resize', handleResize);
 
     return () => {
+      clearTimeout(tabMonitoringTimer);
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('selectstart', handleSelectStart);
       document.removeEventListener('dragstart', handleDragStart);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('resize', handleResize);
       document.head.removeChild(style);
     };
   }, [handleViolation]);

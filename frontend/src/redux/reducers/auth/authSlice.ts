@@ -36,19 +36,38 @@ export const initiateAuth0Login = createAsyncThunk(
      const loginWindow = window.open(
              'http://localhost:8081/oauth2/authorization/auth0',
              'loginWindow',
-             'width=2000,height=1000,scrollbars=yes,resizable=yes'
+             'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no'
            );
+       if (loginWindow) {
+               // Monitor popup size every second
+               const checkSize = setInterval(() => {
+                 try {
+                   if (loginWindow && !loginWindow.closed) {
+                     const width = loginWindow.outerWidth;
+                     const height = loginWindow.outerHeight;
 
-           if (!loginWindow) {
-             // Fallback to same window if popup blocked
-             window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
+                     if (width < 2000 || height < 1000) {
+                       loginWindow.resizeTo(2000, 1000);
+                       loginWindow.alert('Window size reset — please don’t resize it.');
+                     }
+                   } else {
+                     clearInterval(checkSize);
+                   }
+                 } catch (e) {
+                   clearInterval(checkSize);
+                 }
+               }, 1000);
+             } else {
+               // Fallback if popup blocked
+               window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
+             }
+
+             return null;
+           } catch (err: any) {
+             return rejectWithValue('Failed to initiate login');
            }
-      return null;
-    } catch (err: any) {
-      return rejectWithValue('Failed to initiate login');
-    }
-  }
-);
+         }
+       );
 
 export const checkAuthStatus = createAsyncThunk(
   'auth/checkAuthStatus',

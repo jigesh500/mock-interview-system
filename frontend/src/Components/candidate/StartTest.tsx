@@ -12,7 +12,8 @@ import {
   FormControl,
   Box,
   Button,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   saveAnswer,
@@ -30,6 +31,7 @@ const StartTest: React.FC = () => {
   // Move useState hooks before early return
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+
 
   useEffect(() => {
     console.log("Questions length:", questions.length);
@@ -124,6 +126,7 @@ const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim()
   return (
     <Card className="h-full bg-white shadow-lg w-[1430px] mx-auto">
       <CardContent className="p-6">
+
 
         {/* Header with Circular Timer */}
         <Box className="mb-4 flex justify-between items-center">
@@ -248,10 +251,32 @@ const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim()
             </Box>
           </Box>
 
-          {/* Submit button only on last question */}
-          {/* Submit button only on last question */}
           {currentQuestionIndex === questions.length - 1 && (
             <Box className="flex flex-col items-center">
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleSubmit}
+                className="px-8 py-3 mt-4"
+                disabled={!allQuestionsAnswered}
+              >
+                Submit
+              </Button>
+
+              {!allQuestionsAnswered && (
+                <Typography color="error" className="mt-2 text-sm">
+                  You must attempt all questions before submitting.
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default StartTest;tems-center">
               <Button
                 variant="contained"
                 color="error"

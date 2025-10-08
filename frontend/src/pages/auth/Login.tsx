@@ -34,7 +34,7 @@ const Login = () => {
     const loginWindow = window.open(
         'http://localhost:8081/oauth2/authorization/auth0',
         'loginWindow',
-        'width=2000,height=1000,scrollbars=yes,resizable=yes'
+        'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no'
       );
 
       // Fallback if popup blocked
