@@ -9,7 +9,9 @@ interface UseExamSecurityReturn {
 }
 
 export const useExamSecurity = (
-  onViolation?: (type: ViolationType, message: string) => void
+  onViolation?: (type: ViolationType, message: string) => void,
+  sessionId?: string,
+    candidateEmail?: string
 ): UseExamSecurityReturn => {
   const tabSwitchViolations = useRef(0);
   const tabMonitoringActive = useRef(false);
@@ -43,7 +45,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const forbidden = [
-
+            e.key === 'f12',
         e.key === 'PrintScreen',
         (e.ctrlKey && e.shiftKey && e.key === 'I'),
         (e.ctrlKey && e.key === 'u'),
@@ -62,6 +64,8 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
     };
 
     const terminateInterview = async (reason: string, count: number) => {
+        interviewCompleted.current = true;
+          tabMonitoringActive.current = false;
       alert('❌ INTERVIEW TERMINATED: Due to multiple tab switching violations');
       
       try {
@@ -70,20 +74,23 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            sessionId: 'current-session',
-            candidateEmail: 'candidate@email.com',
+            sessionId: sessionId,
+            candidateEmail: candidateEmail,
             eventType: 'INTERVIEW_TERMINATED',
             description: 'Interview terminated due to tab switching violations',
             metadata: JSON.stringify({ violationCount: count, reason })
           })
         });
+
+
+
       } catch (err) {
         console.error('Error logging termination:', err);
       }
       
       setTimeout(() => {
         window.location.href = '/violation';
-      }, 2000);
+      }, 1500);
     };
 
     const handleSelectStart = (e: Event) => {
@@ -115,7 +122,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
         
         console.log(`Tab switch #${newCount} detected`);
         
-        handleViolation('TAB_SWITCH', `Tab switching detected (${newCount}/3)`);
+        handleViolation('TAB_SWITCH', `Tab switching detected (${newCount})`);
         
         if (newCount === 1) {
           alert("⚠️ WARNING: Tab switching detected! Please stay on this tab.");
@@ -123,7 +130,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
           alert("⚠️ SECOND WARNING: Tab switching detected again!");
         } else if (newCount === 3) {
           alert("🚨 FINAL WARNING: One more tab switch will terminate your interview!");
-        } else if (newCount >= 4) {
+        } else if (newCount >3 ) {
           terminateInterview('TAB_SWITCH', newCount);
           return;
         }
@@ -178,7 +185,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
       window.removeEventListener('resize', handleResize);
       document.head.removeChild(style);
     };
-  }, [handleViolation]);
+  }, [handleViolation,sessionId,candidateEmail]);
 
   const activateSecurity = useCallback(() => {
     console.log('Exam security activated - silent mode');

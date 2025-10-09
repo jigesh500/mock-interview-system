@@ -35,10 +35,10 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
-  const { isAuthenticated, loading, authLoading,user } = useAuth();
-
-  const [timeLeft, setTimeLeft] = useState(0.5 * 60);
+  const { isAuthenticated, authLoading, user } = useAuth();
+  const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+  const [cameraReady, setCameraReady] = useState(false);
 
   // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
@@ -46,7 +46,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     //alert(`⚠️ Security Alert: ${message}`);
   }, [])
 
-  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation);
+  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation,sessionId,user?.email);
 
   // Submit function
   const handleSubmit = useCallback(async () => {
@@ -139,6 +139,25 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     );
   }
 
+if (!cameraReady) {
+    return (
+      <Box className="flex justify-center items-center h-screen">
+        <Card className="p-8 text-center">
+          <Typography variant="h6" className="mb-4">
+            📷 Camera Permission Required
+          </Typography>
+          <Typography className="mb-4">
+            Please allow camera access to start your interview
+          </Typography>
+          <CameraMonitor
+            sessionId={sessionId || ''}
+            onCameraReady={setCameraReady}
+          />
+        </Card>
+      </Box>
+    );
+  }
+
   if (questions.length === 0) {
     return (
       <Box className="flex justify-center items-center h-64">
@@ -171,6 +190,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         <Box className="bg-white p-2 m-2 rounded shadow-lg">
           <Box className="w-full">
             <CameraMonitor sessionId={sessionId}
+            onCameraReady={setCameraReady}
             onInterviewEnd={() => {
                 // ✅ Deactivate both securities
                 deactivateSecurity();
@@ -198,7 +218,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
               <Box sx={{ position: "relative", display: "inline-flex" }}>
                 <CircularProgress
                   variant="determinate"
-                  value={(timeLeft / (0.5 * 60)) * 100}
+                  value={(timeLeft / (15 * 60)) * 100}
                   size={90}
                   thickness={5}
                   color={timeLeft <= 30 ? "error" : "primary"}

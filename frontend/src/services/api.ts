@@ -24,6 +24,9 @@ export const hrAPI = {
      api.post(`/hr/assign-candidate?meetingId=${meetingId}&candidateEmail=${candidateEmail}`),
   uploadResume: (formData: FormData) => api.post('/hr/upload-resume', formData),
   addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
+ deleteCandidate: (candidateName: string) =>
+   api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
+
 };
 
 // Candidate APIs

@@ -55,6 +55,21 @@ const HRDashboard: React.FC = () => {
     }
   };
 
+const deleteCandidate = async (candidateName: string) => {
+  if (!window.confirm(`Are you sure you want to delete ${candidateName}?`)) {
+    return;
+  }
+
+  try {
+    await hrAPI.deleteCandidate(candidateName);
+    alert('Candidate deleted successfully!');
+    loadCandidates(); // Reload the list
+  } catch (error: any) {
+    console.error('Error deleting candidate:', error);
+    alert(`Error: ${error.response?.data?.message || 'Failed to delete candidate'}`);
+  }
+};
+
 const handleLogout = async () => {
   try {
     // Call backend logout
@@ -151,6 +166,8 @@ const handleLogout = async () => {
                 <th className="px-4 py-2 text-left">Skills</th>
                 <th className="px-4 py-2 text-left">Phone</th>
                 <th className="px-4 py-2 text-left">Location</th>
+                <th className="px-4 py-2 text-left">Actions</th>
+
               </tr>
             </thead>
             <tbody>
@@ -163,6 +180,14 @@ const handleLogout = async () => {
                   <td className="px-4 py-2 max-w-xs truncate">{candidate.skills}</td>
                   <td className="px-4 py-2">{candidate.phoneNumber}</td>
                   <td className="px-4 py-2">{candidate.location}</td>
+                  <td className="px-4 py-2">
+                          <button
+                            onClick={() => deleteCandidate(candidate.candidateName)}
+                            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </td>
                 </tr>
               ))}
             </tbody>

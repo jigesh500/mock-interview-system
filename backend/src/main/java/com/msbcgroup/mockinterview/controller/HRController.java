@@ -23,10 +23,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/hr")
@@ -114,13 +111,24 @@ public class HRController {
     }
 
     @PostMapping("/candidates")
-    public ResponseEntity<CandidateProfile> addCandidate(@RequestBody CandidateProfile candidate) {
+    public ResponseEntity<Map<String, Object>> addCandidate(@RequestBody CandidateProfile candidate) {
         if(candidate==null){
             return ResponseEntity.badRequest().build();
         }
 
+        Optional<CandidateProfile> existingCandidate = candidateProfileRepository.findByCandidateEmail(candidate.getCandidateEmail());
+        if(existingCandidate.isPresent()) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", "Candidate with this email already exists");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         CandidateProfile saved = candidateProfileRepository.save(candidate);
-        return ResponseEntity.ok(saved);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", saved);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/logout")
@@ -156,6 +164,17 @@ public class HRController {
         try {
             String resumeText = fileProcessingService.extractTextFromFile(file);
             JsonNode parsedData = resumeParsingService.parseResume(resumeText);
+            // Check if candidate already exists by email
+            String email = parsedData.get("email").asText();
+            if(email != null && !email.isEmpty()) {
+                Optional<CandidateProfile> existingCandidate = candidateProfileRepository.findByCandidateEmail(email);
+                if(existingCandidate.isPresent()) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("success", false);
+                    response.put("error", "Candidate with email " + email + " already exists");
+                    return ResponseEntity.badRequest().body(response);
+                }
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -170,4 +189,29 @@ public class HRController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    @DeleteMapping("/candidates/{name}")
+    public ResponseEntity<Map<String, String>> deleteCandidate(@PathVariable String name) {
+        try {
+            Optional<CandidateProfile> candidate = candidateProfileRepository.findByCandidateName(name);
+            if (!candidate.isPresent()) {
+                Map<String, String> response = new HashMap<>();
+                response.put("error", "Candidate not found");
+                return ResponseEntity.notFound().build();
+            }
+
+            candidateProfileRepository.deleteByCandidateName(name);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Candidate deleted successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, String> response = new HashMap<>();
+            response.put("error", "Failed to delete candidate: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+
 }

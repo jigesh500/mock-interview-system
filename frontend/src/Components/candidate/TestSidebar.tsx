@@ -4,12 +4,12 @@ import { setCurrentQuestionIndex } from '../../redux/reducers/testSlice';
 
 const TestSidebar = () => {
      const dispatch = useAppDispatch();
-  const { questions, currentQuestionIndex, answers, markedQuestions, visitedQuestions, answeredQuestions, reviewedQuestions } = useAppSelector((state) => state.test);
+  const { questions, currentQuestionIndex, answers, markedQuestions, answeredQuestions, reviewedQuestions } = useAppSelector((state) => state.test);
 
   const getQuestionStatus = (questionId: string, index: number) => {
     const isAnswered = answeredQuestions.includes(questionId);
     const isMarked = markedQuestions.includes(questionId);
-    const isVisited = visitedQuestions.includes(questionId);
+//     const isVisited = visitedQuestions.includes(questionId);
     const isReviewed = reviewedQuestions && reviewedQuestions.includes(questionId);
     const isCurrent = currentQuestionIndex === index;
 
@@ -21,8 +21,6 @@ const TestSidebar = () => {
       return { color: 'success' as const, variant: 'filled' as const, className: '' };
     } else if (isMarked) {
       return { color: 'info' as const, variant: 'filled' as const, className: '' };
-    } else if (isVisited) {
-      return { color: 'default' as const, variant: 'outlined' as const, className: '' };
     }
     return { color: 'default' as const, variant: 'outlined' as const, className: 'opacity-60' };
   };
@@ -35,8 +33,8 @@ const TestSidebar = () => {
     let answered = answeredQuestions.length;
     let marked = markedQuestions.length;
     let reviewed = reviewedQuestions ? reviewedQuestions.length : 0;
-    let notVisited = questions.length - visitedQuestions.length;
-    return { answered, marked, reviewed, notVisited };
+//     let notVisited = questions.length - visitedQuestions.length;
+    return { answered, marked, reviewed };
   };
 
   const statusCounts = getStatusCounts();
@@ -59,26 +57,12 @@ const TestSidebar = () => {
             </span>
             <span className="font-semibold">{statusCounts.answered}</span>
           </Box>
-          {/*<Box className="flex justify-between">
-            <span className="flex items-center">
-              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-              Reviewed
-            </span>
-            <span className="font-semibold">{statusCounts.reviewed}</span>
-          </Box>*/}
           <Box className="flex justify-between">
             <span className="flex items-center">
               <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
               Marked for Review
             </span>
             <span className="font-semibold">{statusCounts.marked}</span>
-          </Box>
-          <Box className="flex justify-between">
-            <span className="flex items-center">
-              <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
-              Not Visited
-            </span>
-            <span className="font-semibold">{statusCounts.notVisited}</span>
           </Box>
         </Box>
       </Box>

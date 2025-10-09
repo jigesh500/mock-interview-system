@@ -33,8 +33,6 @@ public class CandidateProfile {
     private String location;
 
 
-    private LocalDateTime scheduledDate;
-
     private LocalDateTime createdAt;
 
 
@@ -98,13 +96,7 @@ public class CandidateProfile {
         this.description = description;
     }
 
-    public LocalDateTime getScheduledDate() {
-        return scheduledDate;
-    }
 
-    public void setScheduledDate(LocalDateTime scheduledDate) {
-        this.scheduledDate = scheduledDate;
-    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

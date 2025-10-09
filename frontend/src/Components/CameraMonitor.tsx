@@ -2,10 +2,12 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as faceapi from 'face-api.js';
 import { useAuth } from '../hooks/useAuth';
 import { useExamSecurity } from '../hooks/useExamSecurity';
+import { Typography, Button } from '@mui/material';
 
 interface CameraMonitorProps {
   sessionId: string;
   onInterviewEnd?: () => void;
+  onCameraReady?: (granted: boolean) => void;
 }
 
 interface User {
@@ -13,17 +15,22 @@ interface User {
   [key: string]: any;
 }
 
-const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd }) => {
-
+const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd, onCameraReady }) => {
+  // ✅ ALL variables declared first
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [status, setStatus] = useState<string>("Loading...");
+  const [cameraPermission, setCameraPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
+  const [lastEventType, setLastEventType] = useState<string | null>(null);
+  const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
+  const [multipleFaceViolations, setMultipleFaceViolations] = useState<number>(0);
+  const [noFaceViolations, setNoFaceViolations] = useState<number>(0);
+  const [isViolated, setIsViolated] = useState<boolean>(false);
+
   const { user, isAuthenticated, loading: isLoading } = useAuth() as {
     user: User | null;
     isAuthenticated: boolean;
     loading: boolean;
   };
-
-
 
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     if (!isAuthenticated || !user?.email || !sessionId) return;
@@ -47,53 +54,47 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
   }, [isAuthenticated, user?.email, sessionId]);
 
   const { enterFullscreen, deactivateSecurity } = useExamSecurity(handleSecurityViolation);
+  
   useEffect(() => {
-      if (onInterviewEnd) {
-        (window as any).deactivateCameraSecurity = deactivateSecurity;
+    if (onInterviewEnd) {
+      (window as any).deactivateCameraSecurity = deactivateSecurity;
+    }
+  }, [deactivateSecurity, onInterviewEnd]);
+
+  // ✅ Single camera request
+  useEffect(() => {
+    const requestCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setCameraPermission('granted');
+        onCameraReady?.(true);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadeddata = () => {
+            setStatus('📹 Camera Ready');
+          };
+        }
+      } catch (err) {
+        setCameraPermission('denied');
+        onCameraReady?.(false);
+        setStatus("Camera access denied");
       }
-    }, [deactivateSecurity, onInterviewEnd]);
+    };
 
-//   useEffect(() => {
-//       if (isAuthenticated && user?.email && sessionId && interviewStarted) {
-//         // Activate exam security mode
-//         enterFullscreen();
-//       }
-//     }, [isAuthenticated, user?.email, sessionId, interviewStarted, enterFullscreen]);
+    requestCamera();
+  }, [onCameraReady]);
 
-  // State tracking for event-based monitoring
-  const [lastEventType, setLastEventType] = useState<string | null>(null);
-  const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
-  const [multipleFaceViolations, setMultipleFaceViolations] = useState<number>(0);
-  const [noFaceViolations, setNoFaceViolations] = useState<number>(0);
-  const [isViolated, setIsViolated] = useState<boolean>(false);
-
-  // Load face-api.js models
+  // ✅ Load face-api.js models only (no duplicate camera request)
   useEffect(() => {
     const loadModels = async () => {
       try {
         await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
-        startVideo();
+        console.log('Face detection models loaded');
       } catch (err) {
         console.error("Error loading models:", err);
         setStatus("Error loading AI models");
       }
-    };
-
-    const startVideo = () => {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.onloadeddata = () => {
-              console.log('Video loaded and ready for detection');
-              setStatus('📹 Camera Ready');
-            };
-          }
-        })
-        .catch(err => {
-          console.error("Error accessing camera:", err);
-          setStatus("Camera access denied");
-        });
     };
 
     loadModels();
@@ -153,6 +154,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
 
         const terminateInterview = async (reason: string, count: number) => {
           setIsViolated(true);
+          deactivateSecurity();
           alert(`❌ INTERVIEW TERMINATED: Due to multiple violations`);
 
           try {
@@ -258,6 +260,20 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     return () => clearInterval(interval);
   }, [sessionId, user, isAuthenticated, isLoading, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations, isViolated]);
 
+  // ✅ Early return after all hooks
+  if (cameraPermission === 'denied') {
+    return (
+      <div className="text-center p-4 bg-red-100 rounded">
+        <Typography color="error">
+          📷 Camera access required to start interview
+        </Typography>
+        <Button onClick={() => window.location.reload()} className="mt-2">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="text-center">
       <video ref={videoRef} autoPlay muted width={200} height={150} className="rounded" />
@@ -268,12 +284,6 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
       }`}>
         {status}
       </div>
-      <button 
-        onClick={enterFullscreen} 
-        className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-      >
-        🔒 Enter Exam Mode
-      </button>
       {!isAuthenticated && (
         <div className="text-xs text-red-500 mt-1">
           Please login to enable monitoring

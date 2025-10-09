@@ -65,13 +65,20 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
         description: extractedData.description || '',
       };
 
-      await hrAPI.addCandidate(candidateData);
-      alert('Candidate added successfully!');
-      onCandidateAdded();
-      handleClose();
-    } catch (error: any) {
-      console.error('Save error:', error);
-      alert('Error saving candidate: ' + (error.response?.data?.message || error.message));
+      const response = await hrAPI.addCandidate(candidateData);
+
+          // ✅ Check response for success/error
+          if (response.data.success) {
+            alert('Candidate added successfully!');
+            onCandidateAdded();
+            handleClose();
+          } else {
+            alert('Error: ' + response.data.error);
+          }
+        } catch (error: any) {
+          console.error('Save error:', error);
+          // ✅ Handle duplicate candidate error
+          alert('Error: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -109,13 +116,21 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
             />
           </div>
 
-          <button
-            onClick={handleUpload}
-            disabled={!file || loading}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-          >
-            {loading ? 'Processing...' : 'Extract Data from Resume'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleUpload}
+              disabled={!file || loading}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+            >
+              {loading ? 'Processing...' : 'Extract Data from Resume'}
+            </button>
+            <button
+              onClick={handleClose}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+              Back to Dashboard
+            </button>
+          </div>
 
           {extractedData && (
             <div className="mt-6 p-4 bg-gray-50 rounded">

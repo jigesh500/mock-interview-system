@@ -16,7 +16,7 @@ export interface TestState {
     isLoading: boolean,
     error: string | null,
     markedQuestions:string[],
-    visitedQuestions: string[];
+
     answeredQuestions: string[]; // <-- Added
   isSubmitted: boolean;
   answers: { [questionId: string]: string | string[] }; 
@@ -31,7 +31,6 @@ const initialState:TestState={
     isLoading:false,
     error:null,
     markedQuestions:[],
-    visitedQuestions:["1"],
     answeredQuestions:[], // <-- Added
     isSubmitted:false,
     answers:{},
@@ -59,11 +58,8 @@ initialState,
 reducers:{
     setCurrentQuestionIndex:(state,action:PayloadAction<number>)=>{
         state.currentQuestionIndex=action.payload;
-        const currentQuestion = state.questions[action.payload];
-        if (currentQuestion && !state.visitedQuestions.includes(currentQuestion.id)) {
-            state.visitedQuestions.push(currentQuestion.id);
-        }
     },
+
     saveAnswer(state,action:PayloadAction<{questionId:string,answer:string | string[]}>){
         const prevAnswer = state.answers[action.payload.questionId];
         state.answers[action.payload.questionId] = action.payload.answer;
@@ -95,10 +91,6 @@ reducers:{
     nextQuestion:(state)=>{
         if (state.currentQuestionIndex < state.questions.length - 1) {
             state.currentQuestionIndex += 1;
-            const currentQuestion = state.questions[state.currentQuestionIndex];
-            if (currentQuestion && !state.visitedQuestions.includes(currentQuestion.id)) {
-                state.visitedQuestions.push(currentQuestion.id);
-            }
         }
     },
     previousQuestion:(state)=>{
