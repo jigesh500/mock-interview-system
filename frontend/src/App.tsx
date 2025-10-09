@@ -20,7 +20,7 @@ const App = () => {
         <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
         <Route path="/interview/start" element={<TestInterface/>} />
         <Route path="/thank-you" element={<ThankYou />} />
-        <Route path="/thank-you2" element={<ThankYou2 />} />
+        <Route path="/logout" element={<ThankYou2 />} />
         <Route path="/violation" element={<ViolationPage />} />
         {/* Default Route */}
         <Route path="/" element={<Navigate to="/auth/login" replace />} />

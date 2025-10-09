@@ -32,29 +32,25 @@ interface StartTestProps {
 }
 
 const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
+
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading, authLoading,user } = useAuth();
 
-  const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const [timeLeft, setTimeLeft] = useState(0.5 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
 
   // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     console.warn('Security violation:', type, message);
     //alert(`⚠️ Security Alert: ${message}`);
-  }, []);
+  }, [])
 
-  const { activateSecurity } = useExamSecurity(handleSecurityViolation);
+  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation);
 
   // Submit function
   const handleSubmit = useCallback(async () => {
     const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim() !== "");
-
-    if (!allQuestionsAnswered) {
-      alert("Please answer all questions before submitting.");
-      return;
-    }
 
     try {
       const answersPayload: { [key: string]: string } = {};
@@ -72,6 +68,26 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       );
 
       if (response.data.status === "success") {
+          deactivateSecurity();
+          (window as any).deactivateCameraSecurity?.();
+          try {
+                    await fetch('http://localhost:8081/api/monitoring/log-event', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        sessionId,
+                        candidateEmail: user.email,
+                        eventType: 'INTERVIEW_END',
+                        description: 'Interview completed successfully',
+                        metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+                      })
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 700));
+                  } catch (err) {
+                    console.error('Error logging interview end:', err);
+                  }
+
         alert("Interview submitted successfully!");
         if (onExamSubmit) onExamSubmit();
         window.location.href = '/thank-you';
@@ -80,7 +96,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       console.error("Error submitting interview:", error);
       alert("Failed to submit interview. Please try again.");
     }
-  }, [questions, answers, sessionId, onExamSubmit]);
+  }, [questions, answers, sessionId, onExamSubmit,user]);
 
   useEffect(() => {
     if (isAuthenticated && questions.length === 0) {
@@ -154,7 +170,12 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         {/* Camera Monitor - Top */}
         <Box className="bg-white p-2 m-2 rounded shadow-lg">
           <Box className="w-full">
-            <CameraMonitor sessionId={sessionId} />
+            <CameraMonitor sessionId={sessionId}
+            onInterviewEnd={() => {
+                // ✅ Deactivate both securities
+                deactivateSecurity();
+                (window as any).deactivateCameraSecurity?.();
+              }}/>
           </Box>
         </Box>
 
@@ -177,7 +198,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
               <Box sx={{ position: "relative", display: "inline-flex" }}>
                 <CircularProgress
                   variant="determinate"
-                  value={(timeLeft / (15 * 60)) * 100}
+                  value={(timeLeft / (0.5 * 60)) * 100}
                   size={90}
                   thickness={5}
                   color={timeLeft <= 30 ? "error" : "primary"}

@@ -5,6 +5,7 @@ type ViolationType = 'RIGHT_CLICK' | 'KEYBOARD_SHORTCUT' | 'TAB_SWITCH' | 'WINDO
 
 interface UseExamSecurityReturn {
   activateSecurity: () => void;
+  deactivateSecurity: () => void;
 }
 
 export const useExamSecurity = (
@@ -13,11 +14,26 @@ export const useExamSecurity = (
   const tabSwitchViolations = useRef(0);
   const tabMonitoringActive = useRef(false);
   const isTabHidden = useRef(false);
+  const interviewCompleted = useRef(false);
 
   const handleViolation = useCallback((type: ViolationType, message: string) => {
+
+      if (interviewCompleted.current) {
+          console.log('Violation ignored - interview completed:', type, message);
+          return;
+        }
+
     console.log('Security action blocked:', type, message);
     onViolation?.(type, message);
   }, [onViolation]);
+
+const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
+ const deactivateSecurity = useCallback(() => {
+    tabMonitoringActive.current = false;
+    interviewCompleted.current = true;
+
+
+  }, []);
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
@@ -27,7 +43,7 @@ export const useExamSecurity = (
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const forbidden = [
-        e.key === 'F12',
+
         e.key === 'PrintScreen',
         (e.ctrlKey && e.shiftKey && e.key === 'I'),
         (e.ctrlKey && e.key === 'u'),
@@ -89,7 +105,7 @@ export const useExamSecurity = (
     };
 
     const handleVisibilityChange = async () => {
-      if (!tabMonitoringActive.current) return;
+      if (!tabMonitoringActive.current|| interviewCompleted.current) return;
       
       if (document.hidden && !isTabHidden.current) {
         // Tab just became hidden - count violation
@@ -168,5 +184,5 @@ export const useExamSecurity = (
     console.log('Exam security activated - silent mode');
   }, []);
 
-  return { activateSecurity };
+  return { activateSecurity, deactivateSecurity };
 };

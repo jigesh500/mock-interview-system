@@ -290,13 +290,24 @@ public class InterviewController {
                     Description: %s
                 
                     Adjust difficulty based on experience:
-                     - 0–1 years → Mostly beginner-friendly, fundamentals, basic coding.
-                     - 2–4 years → Intermediate difficulty, problem-solving, OOP, APIs, SQL, algorithms.
-                     - 5+ years → Advanced design, optimization, system design, scaling, architecture-level coding problems.
+                    
+                     - If experience ≤ 1 year → Use **Beginner Level**
+                       Focus on: basic syntax, OOP fundamentals, simple algorithms, basic SQL, core language concepts.
+                       Avoid: advanced design patterns, complex system design, concurrency, or scaling questions.
                 
+                     - If 2 ≤ experience ≤ 4 years → Use **Intermediate Level**
+                       Focus on: real-world problem-solving, API usage, debugging, data structures, OOP design, RESTful services, SQL joins, small-scale architecture.
                 
-                    Ensure variety and randomness: use seed %s to make questions unique 
-                    Ensure each question is concise, clear, and unambiguous.
+                     - If experience ≥ 5 years → Use **Advanced Level**
+                       Focus on: system design, optimization, architecture, performance tuning, scalability, multithreading, design patterns, and advanced algorithms.
+                
+                   Other Constraints
+                    
+                    -Ensure a natural variety of question topics based on candidate's skills and Description.
+                    -Ensure questions are concise, clear, and realistic.
+                    -Use the seed %s to maintain randomness and reproducibility.
+                    -Do NOT include any explanations or answers.
+                    
                 
                     Output strictly in JSON format only, no explanations.
                 JSON format:

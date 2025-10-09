@@ -59,7 +59,7 @@ const CandidateDashboard: React.FC = () => {
       dispatch(clearAuth());
       localStorage.clear();
       sessionStorage.clear();
-      navigate('/thank-you2', { replace: true });
+      navigate('/logout', { replace: true });
     }
   };
 

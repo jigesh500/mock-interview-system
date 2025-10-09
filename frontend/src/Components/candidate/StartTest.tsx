@@ -36,8 +36,16 @@ const StartTest: React.FC = () => {
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
   
   // Move useState hooks before early return
-  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes
+  const [timeLeft, setTimeLeft] = useState(1 * 60); // 15 minutes
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+
+ useEffect(() => {
+    console.log("=== AUTH STATUS CHECK ===");
+    console.log("isAuthenticated:", isAuthenticated);
+    console.log("user object:", user);
+    console.log("user email:", user?.email);
+    console.log("========================");
+  }, [isAuthenticated, user]);
 
 
   useEffect(() => {
@@ -87,9 +95,11 @@ const handleSubmit = useCallback(async () => {
       }
     );
 
+    console.log("Submission response:", response.data.status);
     if (response.data.status === "success") {
       // Log interview end event
-      if(isAuthenticated && user?.email && sessionId){
+      console.log("aaaa",isAuthenticated,user?.email,sessionId)
+
         try {
           await fetch('http://localhost:8081/api/monitoring/log-event', {
             method: 'POST',
@@ -107,7 +117,7 @@ const handleSubmit = useCallback(async () => {
         } catch (err) {
           console.error('Error logging interview end:', err);
         }
-      }
+
       alert("Interview submitted successfully!");
       window.location.href = '/thank-you';
     }
@@ -152,7 +162,7 @@ const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim()
           <Box sx={{ position: "relative", display: "inline-flex" }}>
             <CircularProgress
               variant="determinate"
-              value={(timeLeft / (15 * 60)) * 100}
+              value={(timeLeft / (1 * 60)) * 100}
               size={90}
               thickness={5}
               color={timeLeft <= 30 ? "error" : "primary"}

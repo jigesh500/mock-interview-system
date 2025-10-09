@@ -5,6 +5,7 @@ import { useExamSecurity } from '../hooks/useExamSecurity';
 
 interface CameraMonitorProps {
   sessionId: string;
+  onInterviewEnd?: () => void;
 }
 
 interface User {
@@ -12,7 +13,8 @@ interface User {
   [key: string]: any;
 }
 
-const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId }) => {
+const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd }) => {
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [status, setStatus] = useState<string>("Loading...");
   const { user, isAuthenticated, loading: isLoading } = useAuth() as {
@@ -20,6 +22,8 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId }) => {
     isAuthenticated: boolean;
     loading: boolean;
   };
+
+
 
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     if (!isAuthenticated || !user?.email || !sessionId) return;
@@ -42,7 +46,13 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId }) => {
     }
   }, [isAuthenticated, user?.email, sessionId]);
 
-  const { enterFullscreen } = useExamSecurity(handleSecurityViolation);
+  const { enterFullscreen, deactivateSecurity } = useExamSecurity(handleSecurityViolation);
+  useEffect(() => {
+      if (onInterviewEnd) {
+        (window as any).deactivateCameraSecurity = deactivateSecurity;
+      }
+    }, [deactivateSecurity, onInterviewEnd]);
+
 //   useEffect(() => {
 //       if (isAuthenticated && user?.email && sessionId && interviewStarted) {
 //         // Activate exam security mode

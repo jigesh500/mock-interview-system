@@ -33,6 +33,7 @@ public class MonitoringController {
             event.setCandidateEmail((String) eventData.get("candidateEmail"));
             event.setDescription((String) eventData.getOrDefault("description", ""));
             event.setMetadata((String) eventData.getOrDefault("metadata", ""));
+
             // Validate and set EventType
             String typeStr = (String) eventData.get("eventType");
             try {
@@ -42,7 +43,8 @@ public class MonitoringController {
             }
 
             // Timestamp is automatically set in constructor
-            eventRepository.save(event);
+            MonitoringEvent savedEvent =eventRepository.save(event);
+
 
             return ResponseEntity.ok("Event logged successfully");
         } catch (Exception e) {
