@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
+import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
 import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
 import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
 import org.springframework.ai.chat.client.ChatClient;
@@ -32,6 +33,9 @@ public class InterviewController {
 
     @Autowired
     private InterviewSessionRepository sessionRepository;
+
+    @Autowired
+    private InterviewMeetingRepository meetingRepository;
 
     private final ChatClient chatClient;
 
@@ -99,6 +103,9 @@ public class InterviewController {
                 });
         session.setCompleted(true);
         sessionRepository.save(session);
+        List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(email);
+        activeMeetings.forEach(meeting -> meeting.setActive(false));
+        meetingRepository.saveAll(activeMeetings);
 
         Map<String, String> userAnswerMap = new HashMap<>();
 
