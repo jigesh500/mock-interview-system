@@ -70,13 +70,20 @@ public class HRController {
             candidateData.put("skills", candidate.getSkills());
 
             // Only add interview status
-            List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(candidate.getCandidateEmail());
-            candidateData.put("interviewStatus", activeMeetings.isEmpty() ? "Pending" : "Scheduled");
-
             Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidate.getCandidateEmail());
+            List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidate.getCandidateEmail(), InterviewMeeting.MeetingStatus.SCHEDULED);
+
+            String interviewStatus;
+            if (interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1) {
+                interviewStatus = "Completed";  // Interview finished - highest priority
+            } else if (!activeMeetings.isEmpty()) {
+                interviewStatus = "Scheduled";  // Meeting assigned but not completed
+            } else {
+                interviewStatus = "Pending";    // No meeting assigned
+            }
+            candidateData.put("interviewStatus", interviewStatus);
+
             boolean hasSummary = interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1;
-            logger.info("Candidate: " + candidate.getCandidateEmail() + ", Has result: " + interviewResult.isPresent() +
-                    ", Has summary: " + hasSummary);
             candidateData.put("summaryStatus", hasSummary);
 
             return candidateData;
@@ -111,12 +118,12 @@ public class HRController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/meetings")
-    public ResponseEntity<List<InterviewMeeting>> getMyMeetings(@AuthenticationPrincipal OAuth2User principal) {
-        String hrEmail = principal.getAttribute("email");
-        List<InterviewMeeting> meetings = meetingRepository.findByHrEmailAndActiveTrue(hrEmail);
-        return ResponseEntity.ok(meetings);
-    }
+//    @GetMapping("/meetings")
+//    public ResponseEntity<List<InterviewMeeting>> getMyMeetings(@AuthenticationPrincipal OAuth2User principal) {
+//        String hrEmail = principal.getAttribute("email");
+//        List<InterviewMeeting> meetings = meetingRepository.findByHrEmailAndActiveTrue(hrEmail);
+//        return ResponseEntity.ok(meetings);
+//    }
 
     @GetMapping("/interview-summary/{candidateEmail}")
     public ResponseEntity<Map<String, Object>> getInterviewSummary(@PathVariable String candidateEmail) {
@@ -143,13 +150,21 @@ public class HRController {
     }
 
 
+    @GetMapping("/candidates/{candidateEmail}")
+    public ResponseEntity<CandidateProfile> getCandidateByEmail(@PathVariable String candidateEmail) {
+        try {
+            Optional<CandidateProfile> candidate = candidateProfileRepository.findByCandidateEmail(candidateEmail);
+            System.out.println(candidate);
+            if (candidate.isPresent()) {
 
+                return ResponseEntity.ok(candidate.get());
 
-
-    @GetMapping("/candidates")
-    public ResponseEntity<List<CandidateProfile>> getCandidates() {
-        List<CandidateProfile> candidates = candidateProfileRepository.findAll();
-        return ResponseEntity.ok(candidates);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error fetching candidate details for: " + candidateEmail, e);
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping("/assign-candidate")
@@ -158,14 +173,15 @@ public class HRController {
             @RequestParam String candidateEmail) {
 
         // Deactivate any existing active meetings for this candidate
-        List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(candidateEmail);
-        existingMeetings.forEach(meeting -> meeting.setActive(false));
+        List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
+        existingMeetings.forEach(meeting -> meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED));
         meetingRepository.saveAll(existingMeetings);
 
         InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
                 .orElseThrow(() -> new RuntimeException("Meeting not found"));
 
         meeting.setCandidateEmail(candidateEmail);
+        meeting.setStatus(InterviewMeeting.MeetingStatus.SCHEDULED);
         meetingRepository.save(meeting);
 
         Map<String, String> response = new HashMap<>();

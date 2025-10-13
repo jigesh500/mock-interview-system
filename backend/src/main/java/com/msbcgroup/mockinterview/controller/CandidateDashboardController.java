@@ -30,7 +30,7 @@ public class CandidateDashboardController {
     public ResponseEntity<Map<String, Object>> getInterviewInfo(@AuthenticationPrincipal OAuth2User principal) {
         String candidateEmail = principal.getAttribute("email");
 
-        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(candidateEmail);
+        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
         InterviewMeeting meeting = meetings.isEmpty() ? null : meetings.get(0);
 
         Map<String, Object> response = new HashMap<>();
@@ -60,7 +60,7 @@ public class CandidateDashboardController {
     public ResponseEntity<Map<String, Object>> joinInterview(@AuthenticationPrincipal OAuth2User principal) {
         String candidateEmail = principal.getAttribute("email");
 
-        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(candidateEmail);
+        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
         if (meetings.isEmpty()) {
             throw new RuntimeException("No active interview found");
         }

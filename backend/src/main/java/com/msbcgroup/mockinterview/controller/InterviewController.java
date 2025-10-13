@@ -103,8 +103,8 @@ public class InterviewController {
                 });
         session.setCompleted(true);
         sessionRepository.save(session);
-        List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(email);
-        activeMeetings.forEach(meeting -> meeting.setActive(false));
+        List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndStatus(email, InterviewMeeting.MeetingStatus.SCHEDULED);
+        activeMeetings.forEach(meeting -> meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED));
         meetingRepository.saveAll(activeMeetings);
 
         Map<String, String> userAnswerMap = new HashMap<>();

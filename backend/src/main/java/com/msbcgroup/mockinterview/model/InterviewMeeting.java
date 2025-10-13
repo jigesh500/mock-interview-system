@@ -18,7 +18,13 @@ public class InterviewMeeting {
     private String hrEmail;
     private String meetingUrl;
     private LocalDateTime createdAt;
-    private boolean active=true;
+    @Enumerated(EnumType.STRING)
+    private MeetingStatus status = MeetingStatus.PENDING;
+
+    public enum MeetingStatus {
+        PENDING, SCHEDULED, COMPLETED
+    }
+
 
     public InterviewMeeting() {
         this.createdAt = LocalDateTime.now();
@@ -41,6 +47,11 @@ public class InterviewMeeting {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
+    public MeetingStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(MeetingStatus status) {
+        this.status = status;
+    }
 }

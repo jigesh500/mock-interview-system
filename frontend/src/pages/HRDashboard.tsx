@@ -36,9 +36,15 @@ const handleUpdateResume = (candidateEmail: string) => {
 };
 
 
-const handleViewCandidate = (candidate: any) => {
-  setSelectedCandidate(candidate);
-  setShowViewCandidateModal(true);
+const handleViewCandidate = async (candidate: any) => {
+  try {
+    const response = await hrAPI.getCandidateByEmail(candidate.candidateEmail);
+    setSelectedCandidate(response.data);
+    setShowViewCandidateModal(true);
+  } catch (error) {
+    console.error('Error fetching candidate details:', error);
+    toast.error('Failed to load candidate details');
+  }
 };
   const assignCandidate = async () => {
     if (!meetingId || !candidateEmail) {
@@ -197,12 +203,14 @@ const handleLogout = async () => {
                   <td className="px-4 py-2">{candidate.candidateName}</td>
                   <td className="px-4 py-2">{candidate.candidateEmail}</td>
                   <td className="px-4 py-2">{candidate.positionApplied}</td>
-                  <td className="px-4 py-2">{candidate.experienceYears} years</td>
+                  <td className="px-4 py-2">{candidate.experienceYears}</td>
                   <td className="px-4 py-2 max-w-xs truncate">{candidate.skills}</td>
 
                    <td className="px-4 py-2">
                           <span className={`px-2 py-1 rounded text-xs ${
-                            candidate.interviewStatus === 'Scheduled'
+                            candidate.interviewStatus === 'Completed'
+                              ? 'bg-blue-100 text-blue-800'
+                              : candidate.interviewStatus === 'Scheduled'
                               ? 'bg-green-100 text-green-800'
                               : candidate.interviewStatus === 'Pending'
                               ? 'bg-yellow-100 text-yellow-800'

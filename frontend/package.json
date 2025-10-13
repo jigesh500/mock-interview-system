@@ -21,6 +21,7 @@
     "@tailwindcss/vite": "^4.1.13",
     "@types/react-redux": "^7.1.34",
     "@types/react-router-dom": "^5.3.3",
+    "ag-grid-react": "^34.2.0",
     "axios": "^1.12.2",
     "face-api.js": "^0.22.2",
     "react": "^19.1.1",
