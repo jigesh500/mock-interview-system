@@ -3,8 +3,12 @@ package com.msbcgroup.mockinterview.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.InterviewMeeting;
+import com.msbcgroup.mockinterview.model.InterviewResult;
+import com.msbcgroup.mockinterview.model.InterviewSummary;
 import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
+import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
+import com.msbcgroup.mockinterview.repository.InterviewSummaryRepository;
 import com.msbcgroup.mockinterview.service.FileProcessingService;
 import com.msbcgroup.mockinterview.service.ResumeParsingService;
 import jakarta.servlet.http.Cookie;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/hr")
@@ -44,10 +49,42 @@ public class HRController {
     @Autowired
     private FileProcessingService fileProcessingService;
 
+
+    @Autowired
+    private InterviewResultRepository interviewResultRepository;
+
+    @Autowired
+    private InterviewSummaryRepository interviewSummaryRepository;
+
+
     @GetMapping("/dashboard")
-    public List<CandidateProfile> hrDashboard() {
-        return candidateProfileRepository.findAll();
+    public ResponseEntity<List<Map<String, Object>>> hrDashboard() {
+        List<CandidateProfile> candidates = candidateProfileRepository.findAll();
+        List<Map<String, Object>> candidatesWithStatus = candidates.stream().map(candidate -> {
+            Map<String, Object> candidateData = new HashMap<>();
+            candidateData.put("id", candidate.getId());
+            candidateData.put("candidateName", candidate.getCandidateName());
+            candidateData.put("candidateEmail", candidate.getCandidateEmail());
+            candidateData.put("positionApplied", candidate.getPositionApplied());
+            candidateData.put("experienceYears", candidate.getExperienceYears());
+            candidateData.put("skills", candidate.getSkills());
+
+            // Only add interview status
+            List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndActiveTrue(candidate.getCandidateEmail());
+            candidateData.put("interviewStatus", activeMeetings.isEmpty() ? "Pending" : "Scheduled");
+
+            Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidate.getCandidateEmail());
+            boolean hasSummary = interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1;
+            logger.info("Candidate: " + candidate.getCandidateEmail() + ", Has result: " + interviewResult.isPresent() +
+                    ", Has summary: " + hasSummary);
+            candidateData.put("summaryStatus", hasSummary);
+
+            return candidateData;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(candidatesWithStatus);
     }
+
 
     @PostMapping("/create-meeting")
     public ResponseEntity<Map<String, Object>> createMeeting(@AuthenticationPrincipal OAuth2User principal) {
@@ -80,6 +117,34 @@ public class HRController {
         List<InterviewMeeting> meetings = meetingRepository.findByHrEmailAndActiveTrue(hrEmail);
         return ResponseEntity.ok(meetings);
     }
+
+    @GetMapping("/interview-summary/{candidateEmail}")
+    public ResponseEntity<Map<String, Object>> getInterviewSummary(@PathVariable String candidateEmail) {
+        try {
+            Optional<InterviewResult> result = interviewResultRepository.findByCandidateEmail(candidateEmail);
+
+            if (result.isPresent() && result.get().getSummary() != null) {
+                Long summaryId = result.get().getSummary().getId();
+                Optional<InterviewSummary> summary = interviewSummaryRepository.findById(summaryId);
+
+                if (summary.isPresent()) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("score", summary.get().getScore());
+                    response.put("summary", summary.get().getSummary());
+                    return ResponseEntity.ok(response);
+                }
+            }
+
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error fetching interview summary for candidate: " + candidateEmail, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+
+
+
 
     @GetMapping("/candidates")
     public ResponseEntity<List<CandidateProfile>> getCandidates() {

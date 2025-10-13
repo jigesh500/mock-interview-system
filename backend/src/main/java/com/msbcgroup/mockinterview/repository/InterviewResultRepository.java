@@ -1,12 +1,14 @@
 package com.msbcgroup.mockinterview.repository;
 
 import com.msbcgroup.mockinterview.model.InterviewResult;
-import com.msbcgroup.mockinterview.model.InterviewSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface InterviewResultRepository extends JpaRepository<InterviewResult, Long> {
-    InterviewResult findByCandidateEmail(String candidateEmail);
+    Optional<InterviewResult> findByCandidateEmail(String candidateEmail);
+
 
 }

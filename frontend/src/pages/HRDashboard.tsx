@@ -7,6 +7,7 @@ import AddCandidateModal from '../Components/hr/AddCandidateModal';
 import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
 import toast, { Toaster } from 'react-hot-toast';
 import ViewCandidateModal from '../Components/hr/ViewCandidateModal';
+import ViewSummaryModal from '../Components/hr/ViewSummaryModal';
 
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ const HRDashboard: React.FC = () => {
    const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
    const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
    const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+   const [showSummaryModal, setShowSummaryModal] = useState(false);
+   const [selectedSummary, setSelectedSummary] = useState<any>(null);
 
 
 const handleUpdateResume = (candidateEmail: string) => {
@@ -86,6 +89,23 @@ const uploadUpdatedResume = async (e: any, candidateEmail: string) => {
   } catch (error: any) {
       console.error('Update error:', error);
     alert(`Error: ${error.response?.data?.error || 'Failed to update resume'}`);
+  }
+};
+
+const handleViewSummary = async (candidateEmail: string) => {
+  try {
+    const response = await hrAPI.getInterviewSummary(candidateEmail);
+    console.log('Summary response:', response.data);
+
+    if (response.data) {
+      setSelectedSummary(response.data); // response.data is now just a string
+      setShowSummaryModal(true);
+    } else {
+      toast.error('No summary data found');
+    }
+  } catch (error: any) {
+    console.log('Error:', error);
+    toast.error('No interview summary found');
   }
 };
 
@@ -166,8 +186,9 @@ const handleLogout = async () => {
                 <th className="px-4 py-2 text-left">Role</th>
                 <th className="px-4 py-2 text-left">Experience</th>
                 <th className="px-4 py-2 text-left">Skills</th>
+                <th className="px-4 py-2 text-left">Interview Status</th>
+                <th className="px-4 py-2 text-left">Interview Summary</th>
                 <th className="px-4 py-2 text-left">Actions</th>
-
               </tr>
             </thead>
             <tbody>
@@ -178,6 +199,30 @@ const handleLogout = async () => {
                   <td className="px-4 py-2">{candidate.positionApplied}</td>
                   <td className="px-4 py-2">{candidate.experienceYears} years</td>
                   <td className="px-4 py-2 max-w-xs truncate">{candidate.skills}</td>
+
+                   <td className="px-4 py-2">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            candidate.interviewStatus === 'Scheduled'
+                              ? 'bg-green-100 text-green-800'
+                              : candidate.interviewStatus === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {candidate.interviewStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          {candidate.summaryStatus ? (
+                            <button
+                              onClick={() => handleViewSummary(candidate.candidateEmail)}
+                              className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
+                            >
+                              View Summary
+                            </button>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Not Available</span>
+                          )}
+                        </td>
                   <td className="px-4 py-2">
                           <div className="flex gap-2">
                           <button
@@ -227,6 +272,14 @@ const handleLogout = async () => {
         onClose={() => setShowViewCandidateModal(false)}
         candidate={selectedCandidate}
       />
+
+      <ViewSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
+        summary={selectedSummary}
+      />
+
+
     </div>
   );
 };

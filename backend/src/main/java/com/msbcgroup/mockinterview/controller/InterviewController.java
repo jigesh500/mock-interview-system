@@ -127,8 +127,9 @@ public class InterviewController {
         InterviewSummary summary = parseAiSummary(aiResponse);
 
         // Save to DB
-        InterviewResult existingResult = interviewResult.findByCandidateEmail(email);
-        if (existingResult != null) {
+        Optional<InterviewResult> existingResultOpt = interviewResult.findByCandidateEmail(email);
+        if (existingResultOpt.isPresent()) {
+            InterviewResult existingResult = existingResultOpt.get();
             existingResult.setAttempts(existingResult.getAttempts() + 1);
             existingResult.setSubmittedAt(LocalDateTime.now());
             existingResult.setSummary(summary);

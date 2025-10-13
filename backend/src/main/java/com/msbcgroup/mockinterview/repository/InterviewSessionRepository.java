@@ -10,7 +10,6 @@ import java.util.Optional;
 @Repository
 public interface InterviewSessionRepository extends JpaRepository<InterviewSession, String> {
     Optional<InterviewSession> findBySessionId(String sessionId);
-    Optional<InterviewSession> findByCandidateEmailAndCompleted(String candidateEmail, boolean completed);
 
     List<InterviewSession> findByCandidateEmail(String candidateEmail);
 }

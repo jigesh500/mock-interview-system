@@ -27,6 +27,9 @@ export const hrAPI = {
  deleteCandidate: (candidateName: string) =>
    api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
 updateResume: (formData: FormData) => api.put('/hr/update-resume', formData),
+getInterviewSummary: (candidateEmail: string) => api.get(`/hr/interview-summary/${candidateEmail}`),
+
+
 
 };
 
