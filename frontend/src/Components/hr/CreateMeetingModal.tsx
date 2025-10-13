@@ -51,7 +51,7 @@ const CreateMeetingModal: React.FC<CreateMeetingModalProps> = ({ isOpen, onClose
 
   return (
     <div className="fixed inset-0 bg-transparent bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-300 max-w-md h-auto">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-300 max-w-md h-auto border-2 border-gray-300">
         <h2 className="text-xl font-semibold mb-4">Create Teams Meeting</h2>
         
         <div className="space-y-4">

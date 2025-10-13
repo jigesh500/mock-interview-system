@@ -6,6 +6,7 @@ import { useAppDispatch } from '../redux/hooks';
 import AddCandidateModal from '../Components/hr/AddCandidateModal';
 import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
 import toast, { Toaster } from 'react-hot-toast';
+import ViewCandidateModal from '../Components/hr/ViewCandidateModal';
 
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +19,9 @@ const HRDashboard: React.FC = () => {
    const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
    const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
    const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
+   const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
+   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+
 
 const handleUpdateResume = (candidateEmail: string) => {
   setUpdateCandidateEmail(candidateEmail);
@@ -29,7 +33,10 @@ const handleUpdateResume = (candidateEmail: string) => {
 };
 
 
-
+const handleViewCandidate = (candidate: any) => {
+  setSelectedCandidate(candidate);
+  setShowViewCandidateModal(true);
+};
   const assignCandidate = async () => {
     if (!meetingId || !candidateEmail) {
       alert('Please fill in both Meeting ID and Candidate Email');
@@ -159,8 +166,6 @@ const handleLogout = async () => {
                 <th className="px-4 py-2 text-left">Role</th>
                 <th className="px-4 py-2 text-left">Experience</th>
                 <th className="px-4 py-2 text-left">Skills</th>
-                <th className="px-4 py-2 text-left">Phone</th>
-                <th className="px-4 py-2 text-left">Location</th>
                 <th className="px-4 py-2 text-left">Actions</th>
 
               </tr>
@@ -173,10 +178,14 @@ const handleLogout = async () => {
                   <td className="px-4 py-2">{candidate.positionApplied}</td>
                   <td className="px-4 py-2">{candidate.experienceYears} years</td>
                   <td className="px-4 py-2 max-w-xs truncate">{candidate.skills}</td>
-                  <td className="px-4 py-2">{candidate.phoneNumber}</td>
-                  <td className="px-4 py-2">{candidate.location}</td>
                   <td className="px-4 py-2">
                           <div className="flex gap-2">
+                          <button
+                                onClick={() => handleViewCandidate(candidate)}
+                                className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                              >
+                                View
+                              </button>
                               <button
                                 onClick={() => handleUpdateResume(candidate.candidateEmail)}
                                 className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
@@ -211,6 +220,12 @@ const handleLogout = async () => {
         isOpen={showCreateMeetingModal}
         onClose={() => setShowCreateMeetingModal(false)}
         candidates={candidates}
+      />
+
+      <ViewCandidateModal
+        isOpen={showViewCandidateModal}
+        onClose={() => setShowViewCandidateModal(false)}
+        candidate={selectedCandidate}
       />
     </div>
   );
