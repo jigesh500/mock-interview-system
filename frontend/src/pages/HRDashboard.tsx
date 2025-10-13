@@ -4,6 +4,7 @@ import { hrAPI, authAPI } from '../services/api';
 import { clearAuth } from '../redux/reducers/auth/authSlice';
 import { useAppDispatch } from '../redux/hooks';
 import AddCandidateModal from '../Components/hr/AddCandidateModal';
+import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
 import toast, { Toaster } from 'react-hot-toast';
 
 const HRDashboard: React.FC = () => {
@@ -15,6 +16,8 @@ const HRDashboard: React.FC = () => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
    const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
+   const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
+   const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
 
 const handleUpdateResume = (candidateEmail: string) => {
   setUpdateCandidateEmail(candidateEmail);
@@ -25,15 +28,7 @@ const handleUpdateResume = (candidateEmail: string) => {
     fileInput.click();
 };
 
-  const createMeeting = async () => {
-    try {
-      const response = await hrAPI.createMeeting();
-      setMeetingResult(response.data);
-      setMeetingId(response.data.meetingId);
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
+
 
   const assignCandidate = async () => {
     if (!meetingId || !candidateEmail) {
@@ -138,52 +133,19 @@ const handleLogout = async () => {
 
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <div className="flex gap-4">
-          <button
-            onClick={createMeeting}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Create Teams Meeting
-          </button>
-          <button
-            onClick={() => setShowAddCandidateModal(true)}
-            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-          >
-            Add New Candidate
-          </button>
-        </div>
-
-        {meetingResult && (
-          <div className="mt-4 p-4 bg-gray-100 rounded">
-            <p><strong>Meeting ID:</strong> {meetingResult.meetingId}</p>
-            <p><strong>Teams URL:</strong> {meetingResult.meetingUrl}</p>
+            <button
+              onClick={() => setShowCreateMeetingModal(true)}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Create Teams Meeting
+            </button>
+            <button
+              onClick={() => setShowAddCandidateModal(true)}
+              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            >
+              Add New Candidate
+            </button>
           </div>
-        )}
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-semibold mb-4">Assign Candidate</h2>
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Meeting ID"
-            value={meetingId}
-            onChange={(e) => setMeetingId(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-          <input
-            type="email"
-            placeholder="Candidate Email"
-            value={candidateEmail}
-            onChange={(e) => setCandidateEmail(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-          <button
-            onClick={assignCandidate}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-          >
-            Assign Candidate
-          </button>
-        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
@@ -243,6 +205,12 @@ const handleLogout = async () => {
         isOpen={showAddCandidateModal}
         onClose={() => setShowAddCandidateModal(false)}
         onCandidateAdded={loadCandidates}
+      />
+      
+      <CreateMeetingModal
+        isOpen={showCreateMeetingModal}
+        onClose={() => setShowCreateMeetingModal(false)}
+        candidates={candidates}
       />
     </div>
   );
