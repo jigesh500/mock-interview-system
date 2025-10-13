@@ -131,6 +131,44 @@ public class HRController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/update-resume")
+    public ResponseEntity<Map<String,Object>> updateResume(@RequestParam("resume") MultipartFile file,
+                                                           @RequestParam("candidateEmail") String candidateEmail) {
+        try {
+            Optional<CandidateProfile> candidateOpt = candidateProfileRepository.findByCandidateEmail(candidateEmail);
+            if(!candidateOpt.isPresent()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "Candidate not found");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String resumeText = fileProcessingService.extractTextFromFile(file);
+            JsonNode parsedData = resumeParsingService.parseResume(resumeText);
+
+            CandidateProfile candidate = candidateOpt.get();
+            candidate.setCandidateName(parsedData.get("name").asText());
+            candidate.setPositionApplied(parsedData.get("position").asText());
+            candidate.setExperienceYears(parsedData.get("experience").asInt());
+            candidate.setSkills(parsedData.get("skills").asText());
+            candidate.setPhoneNumber(parsedData.get("phone").asText());
+            candidate.setLocation(parsedData.get("location").asText());
+            candidate.setDescription(parsedData.get("description").asText());
+            CandidateProfile updatedCandidate = candidateProfileRepository.save(candidate);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", updatedCandidate);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
     @GetMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
         // Invalidate the session

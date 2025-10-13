@@ -26,6 +26,7 @@ export const hrAPI = {
   addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
  deleteCandidate: (candidateName: string) =>
    api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
+updateResume: (formData: FormData) => api.put('/hr/update-resume', formData),
 
 };
 

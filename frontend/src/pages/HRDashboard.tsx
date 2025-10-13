@@ -4,6 +4,7 @@ import { hrAPI, authAPI } from '../services/api';
 import { clearAuth } from '../redux/reducers/auth/authSlice';
 import { useAppDispatch } from '../redux/hooks';
 import AddCandidateModal from '../Components/hr/AddCandidateModal';
+import toast, { Toaster } from 'react-hot-toast';
 
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,16 @@ const HRDashboard: React.FC = () => {
   const [meetingId, setMeetingId] = useState('');
   const [candidates, setCandidates] = useState<any[]>([]);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
+   const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
+
+const handleUpdateResume = (candidateEmail: string) => {
+  setUpdateCandidateEmail(candidateEmail);
+  const fileInput=document.createElement('input');
+  fileInput.type='file';
+  fileInput.accept = '.pdf,.docx,.txt';
+    fileInput.onchange = (e) => uploadUpdatedResume(e, candidateEmail);
+    fileInput.click();
+};
 
   const createMeeting = async () => {
     try {
@@ -55,6 +66,27 @@ const HRDashboard: React.FC = () => {
     }
   };
 
+const uploadUpdatedResume = async (e: any, candidateEmail: string) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('resume', file);
+  formData.append('candidateEmail', candidateEmail);
+
+  try {
+      console.log('Uploading resume for:', candidateEmail);
+    const response = await hrAPI.updateResume(formData);
+    if (response.data.success) {
+      toast.success('Resume updated successfully!');
+      loadCandidates(); // Reload to show updated data
+    }
+  } catch (error: any) {
+      console.error('Update error:', error);
+    alert(`Error: ${error.response?.data?.error || 'Failed to update resume'}`);
+  }
+};
+
 const deleteCandidate = async (candidateName: string) => {
   if (!window.confirm(`Are you sure you want to delete ${candidateName}?`)) {
     return;
@@ -62,7 +94,7 @@ const deleteCandidate = async (candidateName: string) => {
 
   try {
     await hrAPI.deleteCandidate(candidateName);
-    alert('Candidate deleted successfully!');
+    toast.success('Candidate deleted successfully!');
     loadCandidates(); // Reload the list
   } catch (error: any) {
     console.error('Error deleting candidate:', error);
@@ -93,6 +125,7 @@ const handleLogout = async () => {
 
   return (
     <div className="p-8">
+    <Toaster position="top-right" />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">HR Dashboard</h1>
         <button
@@ -161,7 +194,7 @@ const handleLogout = async () => {
               <tr className="bg-gray-100">
                 <th className="px-4 py-2 text-left">Name</th>
                 <th className="px-4 py-2 text-left">Email</th>
-                <th className="px-4 py-2 text-left">Position</th>
+                <th className="px-4 py-2 text-left">Role</th>
                 <th className="px-4 py-2 text-left">Experience</th>
                 <th className="px-4 py-2 text-left">Skills</th>
                 <th className="px-4 py-2 text-left">Phone</th>
@@ -181,12 +214,20 @@ const handleLogout = async () => {
                   <td className="px-4 py-2">{candidate.phoneNumber}</td>
                   <td className="px-4 py-2">{candidate.location}</td>
                   <td className="px-4 py-2">
-                          <button
-                            onClick={() => deleteCandidate(candidate.candidateName)}
-                            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex gap-2">
+                              <button
+                                onClick={() => handleUpdateResume(candidate.candidateEmail)}
+                                className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                              >
+                                Update
+                              </button>
+                              <button
+                                onClick={() => deleteCandidate(candidate.candidateName)}
+                                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                              >
+                                Delete
+                              </button>
+                            </div>
                         </td>
                 </tr>
               ))}
