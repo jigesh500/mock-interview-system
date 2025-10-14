@@ -39,13 +39,22 @@ const HRDashboard: React.FC = () => {
   const StatusRenderer = (props: any) => {
     const status = props.value;
     const colorClass =
-      status === 'Completed' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-      status === 'Scheduled' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-      status === 'Pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-      'bg-rose-100 text-rose-700 border border-rose-200';
+      status === 'Completed' ? 'bg-green-100 text-green-700 border border-green-200' :
+      status === 'Scheduled' ? 'text-white border' :
+      status === 'Pending' ? 'text-white border' :
+      'text-white border';
+    
+    const bgStyle = 
+      status === 'Scheduled' ? { backgroundColor: '#56C5D0', borderColor: '#56C5D0' } :
+      status === 'Pending' ? { backgroundColor: '#F58220', borderColor: '#F58220' } :
+      status === 'Completed' ? {} :
+      { backgroundColor: '#ED1C24', borderColor: '#ED1C24' };
     
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+      <span 
+        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colorClass}`}
+        style={bgStyle}
+      >
         {status}
       </span>
     );
@@ -55,7 +64,8 @@ const HRDashboard: React.FC = () => {
     if (props.data.summaryStatus) {
       return (
         <button 
-          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 shadow-sm"
+          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#F58220' }}
           onClick={() => handleViewSummary(props.data.candidateEmail)}
         >
           View Summary
@@ -69,21 +79,24 @@ const HRDashboard: React.FC = () => {
     return (
       <div className="flex gap-1.5">
         <button 
-          className="bg-slate-600 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#56C5D0' }}
           onClick={() => handleViewCandidate(props.data.candidateEmail)}
           title="View Details"
         >
           View
         </button>
         <button 
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#F58220' }}
           onClick={() => handleUpdateResume(props.data.candidateEmail)}
           title="Update Resume"
         >
           Update
         </button>
         <button 
-          className="bg-rose-500 hover:bg-rose-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#ED1C24' }}
           onClick={() => deleteCandidate(props.data.candidateName)}
           title="Delete Candidate"
         >
@@ -323,10 +336,11 @@ const HRDashboard: React.FC = () => {
       
       {/* Header */}
       <div className="flex justify-between items-center p-6 bg-white shadow-sm border-b border-slate-200 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-slate-800">HR Dashboard</h1>
+        <h1 className="text-3xl font-bold" style={{ color: '#F58220' }}>HR Dashboard</h1>
         <button
           onClick={handleLogout}
-          className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm"
+          className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#ED1C24' }}
         >
           Logout
         </button>
@@ -342,7 +356,8 @@ const HRDashboard: React.FC = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => setShowCreateMeetingModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm flex items-center gap-2"
+                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
+                style={{ backgroundColor: '#56C5D0' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -351,7 +366,8 @@ const HRDashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => setShowAddCandidateModal(true)}
-                className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm flex items-center gap-2"
+                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
+                style={{ backgroundColor: '#F58220' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

@@ -26,6 +26,7 @@ import {
 } from '../../../redux/reducers/testSlice';
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
+import MicrophoneMonitor from '../../../Components/MicrophoneMonitor';
 
 interface StartTestProps {
   onExamSubmit?: () => void;
@@ -39,12 +40,35 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
+  const [micReady, setMicReady] = useState(false);
 
   // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     console.warn('Security violation:', type, message);
     //alert(`⚠️ Security Alert: ${message}`);
   }, [])
+
+  // Audio violation handler
+  const handleAudioViolation = useCallback(async (type: string, message: string) => {
+    console.warn('Audio violation:', type, message);
+    
+    try {
+      await fetch('http://localhost:8081/api/monitoring/log-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sessionId,
+          candidateEmail: user?.email,
+          eventType: type,
+          description: message,
+          metadata: JSON.stringify({ timestamp: new Date().toISOString() })
+        })
+      });
+    } catch (err) {
+      console.error('Error logging audio violation:', err);
+    }
+  }, [sessionId, user?.email]);
 
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation,sessionId,user?.email);
 
@@ -139,20 +163,28 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     );
   }
 
-if (!cameraReady) {
+if (!cameraReady || !micReady) {
     return (
       <Box className="flex justify-center items-center h-screen">
         <Card className="p-8 text-center">
           <Typography variant="h6" className="mb-4">
-            📷 Camera Permission Required
+            📷🎤 Camera & Microphone Permission Required
           </Typography>
           <Typography className="mb-4">
-            Please allow camera access to start your interview
+            Please allow camera and microphone access to start your interview
           </Typography>
-          <CameraMonitor
-            sessionId={sessionId || ''}
-            onCameraReady={setCameraReady}
-          />
+          <div className="space-y-4">
+            <CameraMonitor
+              sessionId={sessionId || ''}
+              onCameraReady={setCameraReady}
+            />
+            <MicrophoneMonitor
+              sessionId={sessionId || ''}
+              onMicReady={setMicReady}
+              onAudioViolation={handleAudioViolation}
+              threshold={80}
+            />
+          </div>
         </Card>
       </Box>
     );
@@ -186,16 +218,21 @@ if (!cameraReady) {
     <Box className="flex h-screen bg-gray-100">
       {/* Left Panel - Camera + Sidebar */}
       <Box className="w-80 flex flex-col">
-        {/* Camera Monitor - Top */}
+        {/* Camera & Microphone Monitor - Top */}
         <Box className="bg-white p-2 m-2 rounded shadow-lg">
-          <Box className="w-full">
+          <Box className="w-full space-y-2">
             <CameraMonitor sessionId={sessionId}
             onCameraReady={setCameraReady}
             onInterviewEnd={() => {
-                // ✅ Deactivate both securities
                 deactivateSecurity();
                 (window as any).deactivateCameraSecurity?.();
               }}/>
+            <MicrophoneMonitor
+              sessionId={sessionId}
+              onMicReady={setMicReady}
+              onAudioViolation={handleAudioViolation}
+              threshold={80}
+            />
           </Box>
         </Box>
 
