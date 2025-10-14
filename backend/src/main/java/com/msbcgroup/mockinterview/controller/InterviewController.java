@@ -288,8 +288,8 @@ public class InterviewController {
                     Generate exactly 10 interview questions tailored to the candidate's background.
                 
                     The questions must be a **mix of types**:
-                     - 8 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
-                     - 2 Coding/Practical problems (short coding challenges, logic-based coding exercises).
+                     - 20 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
+                     - 5 Coding/Practical problems (coding challenges, logic-based coding exercises solvable within 5–10 minutes).
                 
                     Candidate Profile:
                     positionApplied: %s

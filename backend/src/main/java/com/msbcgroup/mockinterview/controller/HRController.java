@@ -22,8 +22,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -74,12 +72,12 @@ public class HRController {
             List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidate.getCandidateEmail(), InterviewMeeting.MeetingStatus.SCHEDULED);
 
             String interviewStatus;
-            if (interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1) {
-                interviewStatus = "Completed";  // Interview finished - highest priority
-            } else if (!activeMeetings.isEmpty()) {
-                interviewStatus = "Scheduled";  // Meeting assigned but not completed
+            if (!activeMeetings.isEmpty()) {
+                interviewStatus = "Scheduled";  // Active meeting takes priority
+            } else if (interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1) {
+                interviewStatus = "Completed";  // No active meeting but has completed interviews
             } else {
-                interviewStatus = "Pending";    // No meeting assigned
+                interviewStatus = "Pending";    // No meeting and no completed interviews
             }
             candidateData.put("interviewStatus", interviewStatus);
 
@@ -117,13 +115,6 @@ public class HRController {
 
         return ResponseEntity.ok(response);
     }
-
-//    @GetMapping("/meetings")
-//    public ResponseEntity<List<InterviewMeeting>> getMyMeetings(@AuthenticationPrincipal OAuth2User principal) {
-//        String hrEmail = principal.getAttribute("email");
-//        List<InterviewMeeting> meetings = meetingRepository.findByHrEmailAndActiveTrue(hrEmail);
-//        return ResponseEntity.ok(meetings);
-//    }
 
     @GetMapping("/interview-summary/{candidateEmail}")
     public ResponseEntity<Map<String, Object>> getInterviewSummary(@PathVariable String candidateEmail) {

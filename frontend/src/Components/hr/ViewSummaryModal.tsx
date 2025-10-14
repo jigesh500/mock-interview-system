@@ -4,13 +4,14 @@ interface ViewSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   summary: any;
+  totalQuestions?: number;
 }
 
-const ViewSummaryModal: React.FC<ViewSummaryModalProps> = ({ isOpen, onClose, summary }) => {
+const ViewSummaryModal: React.FC<ViewSummaryModalProps> = ({ isOpen, onClose, summary, totalQuestions }) => {
   if (!isOpen || !summary) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-xs" >
       <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Interview Summary</h2>
@@ -21,7 +22,7 @@ const ViewSummaryModal: React.FC<ViewSummaryModalProps> = ({ isOpen, onClose, su
 
          <div className="space-y-4">
            <div>
-             <h3 className="font-semibold text-lg">Score: {summary.score}/10</h3>
+             <h3 className="font-semibold text-lg">Score: {summary.score}/{totalQuestions}</h3>
            </div>
 
            <div>

@@ -23,6 +23,13 @@ public class InterviewSession {
     private LocalDateTime createdAt;
     private boolean completed = false;
 
+
+    private Integer totalQuestions;
+
+    public Integer getTotalQuestions() { return totalQuestions; }
+    public void setTotalQuestions(Integer totalQuestions) { this.totalQuestions = totalQuestions; }
+
+
     public InterviewSession() {
         this.createdAt = LocalDateTime.now();
     }

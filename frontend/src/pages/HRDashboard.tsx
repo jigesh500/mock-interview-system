@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AgGridReact } from 'ag-grid-react';
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { hrAPI, authAPI } from '../services/api';
 import { clearAuth } from '../redux/reducers/auth/authSlice';
 import { useAppDispatch } from '../redux/hooks';
@@ -8,6 +12,10 @@ import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
 import toast, { Toaster } from 'react-hot-toast';
 import ViewCandidateModal from '../Components/hr/ViewCandidateModal';
 import ViewSummaryModal from '../Components/hr/ViewSummaryModal';
+import { useAppSelector } from '../redux/hooks';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -17,35 +25,216 @@ const HRDashboard: React.FC = () => {
   const [meetingId, setMeetingId] = useState('');
   const [candidates, setCandidates] = useState<any[]>([]);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
-   const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
-   const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
-   const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
-   const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
-   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
-   const [showSummaryModal, setShowSummaryModal] = useState(false);
-   const [selectedSummary, setSelectedSummary] = useState<any>(null);
+  const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
+  const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
+  const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
+  const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [selectedSummary, setSelectedSummary] = useState<any>(null);
+   const { questions } = useAppSelector((state) => state.test);
 
 
-const handleUpdateResume = (candidateEmail: string) => {
-  setUpdateCandidateEmail(candidateEmail);
-  const fileInput=document.createElement('input');
-  fileInput.type='file';
-  fileInput.accept = '.pdf,.docx,.txt';
+  // Cell renderer components
+  const StatusRenderer = (props: any) => {
+    const status = props.value;
+    const colorClass =
+      status === 'Completed' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+      status === 'Scheduled' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+      status === 'Pending' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+      'bg-rose-100 text-rose-700 border border-rose-200';
+    
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const SummaryRenderer = (props: any) => {
+    if (props.data.summaryStatus) {
+      return (
+        <button 
+          className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 shadow-sm"
+          onClick={() => handleViewSummary(props.data.candidateEmail)}
+        >
+          View Summary
+        </button>
+      );
+    }
+    return <span className="text-slate-400 text-xs italic">No Summary</span>;
+  };
+
+  const ActionsRenderer = (props: any) => {
+    return (
+      <div className="flex gap-1.5">
+        <button 
+          className="bg-slate-600 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          onClick={() => handleViewCandidate(props.data.candidateEmail)}
+          title="View Details"
+        >
+          View
+        </button>
+        <button 
+          className="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          onClick={() => handleUpdateResume(props.data.candidateEmail)}
+          title="Update Resume"
+        >
+          Update
+        </button>
+        <button 
+          className="bg-rose-500 hover:bg-rose-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors duration-200 shadow-sm"
+          onClick={() => deleteCandidate(props.data.candidateName)}
+          title="Delete Candidate"
+        >
+          Delete
+        </button>
+      </div>
+    );
+  };
+
+  const columnDefs = useMemo(() => [
+    { 
+      field: 'candidateName', 
+      headerName: 'Name', 
+      width: 200,
+      cellStyle: { 
+        fontWeight: '600',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    },
+    { 
+      field: 'candidateEmail', 
+      headerName: 'Email', 
+      width: 240,
+      cellStyle: { 
+        color: '#4F46E5',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    },
+    { 
+      field: 'positionApplied', 
+      headerName: 'Role', 
+      width: 180,
+      cellStyle: {
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    },
+    { 
+      field: 'experienceYears', 
+      headerName: 'Experience', 
+      width: 130,
+      cellRenderer: (params: any) => `${params.value} `,
+      cellStyle: {
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: '500'
+      }
+    },
+    { 
+      field: 'skills', 
+      headerName: 'Skills', 
+      width: 280, 
+      tooltipField: 'skills',
+      cellStyle: { 
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    },
+    {
+      field: 'interviewStatus',
+      headerName: 'Interview Status',
+      width: 180,
+      cellRenderer: StatusRenderer,
+      cellStyle: { 
+        textAlign: 'center',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    },
+    {
+      headerName: 'Interview Summary',
+      width: 180,
+      cellRenderer: SummaryRenderer,
+      cellStyle: { 
+        textAlign: 'center',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    },
+    {
+      headerName: 'Actions',
+      width: 240,
+      cellRenderer: ActionsRenderer,
+      cellStyle: { 
+        textAlign: 'center',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      },
+      sortable: false,
+      filter: false
+    }
+  ], []);
+
+  const defaultColDef = useMemo(() => ({
+    sortable: true,
+    filter: true,
+    resizable: true,
+  }), []);
+
+  const loadCandidates = async () => {
+    try {
+      console.log('Loading candidates...');
+      const response = await hrAPI.getCandidates();
+      console.log('Candidates response:', response.data);
+      setCandidates(response.data);
+    } catch (error) {
+      console.error('Error loading candidates:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadCandidates();
+  }, []);
+
+  const handleUpdateResume = (candidateEmail: string) => {
+    setUpdateCandidateEmail(candidateEmail);
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,.docx,.txt';
     fileInput.onchange = (e) => uploadUpdatedResume(e, candidateEmail);
     fileInput.click();
-};
+  };
 
+  const handleViewCandidate = async (candidateEmail: string) => {
+    try {
+      const response = await hrAPI.getCandidateByEmail(candidateEmail);
+      setSelectedCandidate(response.data);
+      setShowViewCandidateModal(true);
+    } catch (error) {
+      console.error('Error fetching candidate details:', error);
+      toast.error('Failed to load candidate details');
+    }
+  };
 
-const handleViewCandidate = async (candidate: any) => {
-  try {
-    const response = await hrAPI.getCandidateByEmail(candidate.candidateEmail);
-    setSelectedCandidate(response.data);
-    setShowViewCandidateModal(true);
-  } catch (error) {
-    console.error('Error fetching candidate details:', error);
-    toast.error('Failed to load candidate details');
-  }
-};
   const assignCandidate = async () => {
     if (!meetingId || !candidateEmail) {
       alert('Please fill in both Meeting ID and Candidate Email');
@@ -62,232 +251,184 @@ const handleViewCandidate = async (candidate: any) => {
     }
   };
 
-  useEffect(() => {
-    loadCandidates();
-  }, []);
+  const uploadUpdatedResume = async (e: any, candidateEmail: string) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const loadCandidates = async () => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    formData.append('candidateEmail', candidateEmail);
+
     try {
-      console.log('Loading candidates...');
-      const response = await hrAPI.getCandidates();
-      console.log('Candidates response:', response.data);
-      setCandidates(response.data);
-    } catch (error) {
-      console.error('Error loading candidates:', error);
+      console.log('Uploading resume for:', candidateEmail);
+      const response = await hrAPI.updateResume(formData);
+      if (response.data.success) {
+        toast.success('Resume updated successfully!');
+        loadCandidates();
+      }
+    } catch (error: any) {
+      console.error('Update error:', error);
+      alert(`Error: ${error.response?.data?.error || 'Failed to update resume'}`);
     }
   };
 
-const uploadUpdatedResume = async (e: any, candidateEmail: string) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleViewSummary = async (candidateEmail: string) => {
+    try {
+      const response = await hrAPI.getInterviewSummary(candidateEmail);
+      console.log('Summary response:', response.data);
 
-  const formData = new FormData();
-  formData.append('resume', file);
-  formData.append('candidateEmail', candidateEmail);
-
-  try {
-      console.log('Uploading resume for:', candidateEmail);
-    const response = await hrAPI.updateResume(formData);
-    if (response.data.success) {
-      toast.success('Resume updated successfully!');
-      loadCandidates(); // Reload to show updated data
+      if (response.data) {
+        setSelectedSummary(response.data);
+        setShowSummaryModal(true);
+      } else {
+        toast.error('No summary data found');
+      }
+    } catch (error: any) {
+      console.log('Error:', error);
+      toast.error('No interview summary found');
     }
-  } catch (error: any) {
-      console.error('Update error:', error);
-    alert(`Error: ${error.response?.data?.error || 'Failed to update resume'}`);
-  }
-};
+  };
 
-const handleViewSummary = async (candidateEmail: string) => {
-  try {
-    const response = await hrAPI.getInterviewSummary(candidateEmail);
-    console.log('Summary response:', response.data);
-
-    if (response.data) {
-      setSelectedSummary(response.data); // response.data is now just a string
-      setShowSummaryModal(true);
-    } else {
-      toast.error('No summary data found');
+  const deleteCandidate = async (candidateName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${candidateName}?`)) {
+      return;
     }
-  } catch (error: any) {
-    console.log('Error:', error);
-    toast.error('No interview summary found');
-  }
-};
 
-const deleteCandidate = async (candidateName: string) => {
-  if (!window.confirm(`Are you sure you want to delete ${candidateName}?`)) {
-    return;
-  }
+    try {
+      await hrAPI.deleteCandidate(candidateName);
+      toast.success('Candidate deleted successfully!');
+      loadCandidates();
+    } catch (error: any) {
+      console.error('Error deleting candidate:', error);
+      alert(`Error: ${error.response?.data?.message || 'Failed to delete candidate'}`);
+    }
+  };
 
-  try {
-    await hrAPI.deleteCandidate(candidateName);
-    toast.success('Candidate deleted successfully!');
-    loadCandidates(); // Reload the list
-  } catch (error: any) {
-    console.error('Error deleting candidate:', error);
-    alert(`Error: ${error.response?.data?.message || 'Failed to delete candidate'}`);
-  }
-};
-
-const handleLogout = async () => {
-  try {
-    // Call backend logout
-    await authAPI.logout();
-  } catch (error) {
-    console.error('Logout error:', error);
-  } finally {
-    // Clear Redux state
-    dispatch(clearAuth());
-    
-    // Clear storage
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // Navigate to login
-    navigate('/', { replace: true });
-  }
-};
-
-
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      dispatch(clearAuth());
+      localStorage.clear();
+      sessionStorage.clear();
+      navigate('/', { replace: true });
+    }
+  };
 
   return (
-    <div className="p-8">
-    <Toaster position="top-right" />
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">HR Dashboard</h1>
+    <div className="h-screen flex flex-col bg-slate-50">
+      <Toaster position="top-right" />
+      
+      {/* Header */}
+      <div className="flex justify-between items-center p-6 bg-white shadow-sm border-b border-slate-200 flex-shrink-0">
+        <h1 className="text-3xl font-bold text-slate-800">HR Dashboard</h1>
         <button
           onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm"
         >
           Logout
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <div className="flex gap-4">
-            <button
-              onClick={() => setShowCreateMeetingModal(true)}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Create Teams Meeting
-            </button>
-            <button
-              onClick={() => setShowAddCandidateModal(true)}
-              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-            >
-              Add New Candidate
-            </button>
+      {/* Quick Actions */}
+      <div className="p-6 pb-4 flex-shrink-0">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+          <div className="px-6 py-3 border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-800">Quick Actions</h3>
           </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Candidates List</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2 text-left">Name</th>
-                <th className="px-4 py-2 text-left">Email</th>
-                <th className="px-4 py-2 text-left">Role</th>
-                <th className="px-4 py-2 text-left">Experience</th>
-                <th className="px-4 py-2 text-left">Skills</th>
-                <th className="px-4 py-2 text-left">Interview Status</th>
-                <th className="px-4 py-2 text-left">Interview Summary</th>
-                <th className="px-4 py-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {candidates.map((candidate) => (
-                <tr key={candidate.id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-2">{candidate.candidateName}</td>
-                  <td className="px-4 py-2">{candidate.candidateEmail}</td>
-                  <td className="px-4 py-2">{candidate.positionApplied}</td>
-                  <td className="px-4 py-2">{candidate.experienceYears}</td>
-                  <td className="px-4 py-2 max-w-xs truncate">{candidate.skills}</td>
-
-                   <td className="px-4 py-2">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            candidate.interviewStatus === 'Completed'
-                              ? 'bg-blue-100 text-blue-800'
-                              : candidate.interviewStatus === 'Scheduled'
-                              ? 'bg-green-100 text-green-800'
-                              : candidate.interviewStatus === 'Pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {candidate.interviewStatus}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">
-                          {candidate.summaryStatus ? (
-                            <button
-                              onClick={() => handleViewSummary(candidate.candidateEmail)}
-                              className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
-                            >
-                              View Summary
-                            </button>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Not Available</span>
-                          )}
-                        </td>
-                  <td className="px-4 py-2">
-                          <div className="flex gap-2">
-                          <button
-                                onClick={() => handleViewCandidate(candidate)}
-                                className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
-                              >
-                                View
-                              </button>
-                              <button
-                                onClick={() => handleUpdateResume(candidate.candidateEmail)}
-                                className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                              >
-                                Update
-                              </button>
-                              <button
-                                onClick={() => deleteCandidate(candidate.candidateName)}
-                                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                        </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {candidates.length === 0 && (
-            <p className="text-gray-500 text-center py-4">No candidates found</p>
-          )}
+          <div className="p-4">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowCreateMeetingModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Create Meeting
+              </button>
+              <button
+                onClick={() => setShowAddCandidateModal(true)}
+                className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Candidate
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <AddCandidateModal
-        isOpen={showAddCandidateModal}
-        onClose={() => setShowAddCandidateModal(false)}
-        onCandidateAdded={loadCandidates}
-      />
-      
-      <CreateMeetingModal
-        isOpen={showCreateMeetingModal}
-        onClose={() => setShowCreateMeetingModal(false)}
-        candidates={candidates}
-      />
+      {/* Candidates List - Takes remaining space */}
+      <div className="flex-1 px-6 pb-6 min-h-0">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-full flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Candidates List</h2>
+              </div>
+              <div className="text-sm text-slate-500">
+                Total: <span className="font-semibold text-slate-700">{candidates.length}</span> candidates
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 p-4 min-h-0">
+            <div className="ag-theme-alpine rounded-lg border border-slate-200 h-full">
+              <AgGridReact
+                rowData={candidates}
+                columnDefs={columnDefs}
+                defaultColDef={defaultColDef}
+                pagination={true}
+                paginationPageSize={10}
+                domLayout="normal"
+                rowHeight={50}
+                headerHeight={45}
+                animateRows={true}
+                suppressCellFocus={true}
+                rowClass="hover:bg-gray-50"
+                suppressRowHoverHighlight={false}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <ViewCandidateModal
-        isOpen={showViewCandidateModal}
-        onClose={() => setShowViewCandidateModal(false)}
-        candidate={selectedCandidate}
-      />
+      {showAddCandidateModal && (
+        <AddCandidateModal
+          isOpen={showAddCandidateModal}
+          onClose={() => setShowAddCandidateModal(false)}
+          onCandidateAdded={loadCandidates}
+        />
+      )}
 
-      <ViewSummaryModal
-        isOpen={showSummaryModal}
-        onClose={() => setShowSummaryModal(false)}
-        summary={selectedSummary}
-      />
+      {showCreateMeetingModal && (
+        <CreateMeetingModal
+          isOpen={showCreateMeetingModal}
+          onClose={() => setShowCreateMeetingModal(false)}
+          candidates={candidates}
+        />
+      )}
 
+      {showViewCandidateModal && selectedCandidate && (
+        <ViewCandidateModal
+          isOpen={showViewCandidateModal}
+          candidate={selectedCandidate}
+          onClose={() => setShowViewCandidateModal(false)}
+        />
+      )}
 
+      {showSummaryModal && selectedSummary && (
+        <ViewSummaryModal
+          isOpen={showSummaryModal}
+          summary={selectedSummary}
+          totalQuestions={questions.length}
+          onClose={() => setShowSummaryModal(false)}
+        />
+      )}
     </div>
   );
 };

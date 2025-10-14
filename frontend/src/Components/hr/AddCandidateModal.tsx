@@ -106,14 +106,30 @@ const AddCandidateModal: React.FC<AddCandidateModalProps> = ({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Upload Resume (PDF, DOCX, TXT)
+              Upload Resume (PDF, DOCX)
             </label>
-            <input
-              type="file"
-              accept=".pdf,.docx,.txt"
-              onChange={handleFileChange}
-              className="w-full p-2 border rounded"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={file ? file.name : ''}
+                placeholder="No file selected"
+                readOnly
+                className="flex-1 p-2 border rounded bg-gray-50"
+              />
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                id="file-input"
+              />
+              <label
+                htmlFor="file-input"
+                className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600"
+              >
+                Choose File
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-3">
