@@ -29,8 +29,12 @@ export const hrAPI = {
 updateResume: (formData: FormData) => api.put('/hr/update-resume', formData),
 getInterviewSummary: (candidateEmail: string) => api.get(`/hr/interview-summary/${candidateEmail}`),
 getCandidateByEmail: (candidateEmail: string) => api.get(`/hr/candidates/${candidateEmail}`),
-
-
+selectCandidate: (candidateEmail: string) =>
+  api.post(`/hr/candidate/${candidateEmail}/round/select`),
+rejectCandidate: (candidateEmail: string) =>
+  api.post(`/hr/candidate/${candidateEmail}/round/reject`),
+scheduleSecondRound: (candidateEmail: string) =>
+  api.post(`/hr/candidate/${candidateEmail}/schedule-second-round`),
 
 };
 

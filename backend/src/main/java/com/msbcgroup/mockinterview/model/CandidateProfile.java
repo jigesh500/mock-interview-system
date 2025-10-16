@@ -35,6 +35,20 @@ public class CandidateProfile {
 
     private LocalDateTime createdAt;
 
+    @Enumerated(EnumType.STRING)
+    private RoundStatus firstRoundStatus;
+
+    @Enumerated(EnumType.STRING)
+    private RoundStatus secondRoundStatus;
+
+    private Integer currentRound = 1;
+
+    private LocalDateTime lastDecisionTimestamp;
+
+    private String decisionMadeBy;
+
+    private String interviewStatus = "PENDING";
+
 
     public CandidateProfile() {
         this.createdAt = LocalDateTime.now();
@@ -96,7 +110,53 @@ public class CandidateProfile {
         this.description = description;
     }
 
+    public RoundStatus getFirstRoundStatus() {
+        return firstRoundStatus;
+    }
 
+    public void setFirstRoundStatus(RoundStatus firstRoundStatus) {
+        this.firstRoundStatus = firstRoundStatus;
+    }
+
+    public RoundStatus getSecondRoundStatus() {
+        return secondRoundStatus;
+    }
+
+    public void setSecondRoundStatus(RoundStatus secondRoundStatus) {
+        this.secondRoundStatus = secondRoundStatus;
+    }
+
+    public Integer getCurrentRound() {
+        return currentRound;
+    }
+
+    public void setCurrentRound(Integer currentRound) {
+        this.currentRound = currentRound;
+    }
+
+    public LocalDateTime getLastDecisionTimestamp() {
+        return lastDecisionTimestamp;
+    }
+
+    public void setLastDecisionTimestamp(LocalDateTime lastDecisionTimestamp) {
+        this.lastDecisionTimestamp = lastDecisionTimestamp;
+    }
+
+    public String getInterviewStatus() {
+        return interviewStatus;
+    }
+
+    public void setInterviewStatus(String interviewStatus) {
+        this.interviewStatus = interviewStatus;
+    }
+
+    public String getDecisionMadeBy() {
+        return decisionMadeBy;
+    }
+
+    public void setDecisionMadeBy(String decisionMadeBy) {
+        this.decisionMadeBy = decisionMadeBy;
+    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -120,6 +180,18 @@ public class CandidateProfile {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    // Helper method to check if candidate needs second round
+    public boolean needsSecondRound() {
+        return this.firstRoundStatus == RoundStatus.PASS && 
+               this.secondRoundStatus == RoundStatus.PENDING;
+    }
+
+    // Helper method to check if candidate can be evaluated
+    public boolean canBeEvaluated() {
+        return "Completed".equals(this.interviewStatus) && 
+               !"Scheduled".equals(this.interviewStatus);
     }
 
 }

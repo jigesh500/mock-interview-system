@@ -24,6 +24,7 @@ const HRDashboard: React.FC = () => {
   const [candidateEmail, setCandidateEmail] = useState('');
   const [meetingId, setMeetingId] = useState('');
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [gridApi, setGridApi] = useState<any>(null);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
   const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
   const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
@@ -60,10 +61,77 @@ const HRDashboard: React.FC = () => {
     );
   };
 
-  const SummaryRenderer = (props: any) => {
-    if (props.data.summaryStatus) {
+const refreshGrid = () => {
+  if (gridApi) {
+    gridApi.refreshCells({ force: true });
+  }
+};
+
+const handleViewSummary = async (candidateEmail: string) => {
+    try {
+      const response = await hrAPI.getInterviewSummary(candidateEmail);
+
+      if (response.data) {
+        setSelectedSummary({ ...response.data, candidateEmail });
+        setShowSummaryModal(true);
+      } else {
+        toast.error('No summary data found');
+      }
+    } catch (error: any) {
+      console.error('Operation failed:', error.response?.status || 'Unknown error');
+      toast.error('No interview summary found');
+    }
+  };
+
+  const handleScheduleSecondRound = async (candidateEmail: string) => {
+    if (!window.confirm(`Schedule second round interview for ${candidateEmail}?`)) return;
+    
+    try {
+      const response = await hrAPI.scheduleSecondRound(candidateEmail);
+      if (response.data.success) {
+        toast.success(response.data.message);
+        await loadCandidates();
+        refreshGrid();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to schedule second round');
+    }
+  };
+
+  const FirstRoundRenderer = useMemo(() => (props: any) => {
+    const firstRoundStatus = props.data.firstRoundStatus;
+    const interviewStatus = props.data.interviewStatus;
+    const summaryStatus = props.data.summaryStatus;
+    const currentRound = props.data.currentRound;
+
+    if (firstRoundStatus === 'FAIL') {
       return (
-        <button 
+        <span
+          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+          style={{ backgroundColor: '#ED1C24', borderColor: '#ED1C24' }}
+        >
+          Fail
+        </span>
+      );
+    }
+
+    if (firstRoundStatus === 'PASS') {
+      return (
+        <span
+          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+          style={{ backgroundColor: '#56C5D0', borderColor: '#56C5D0' }}
+        >
+          Pass
+        </span>
+      );
+    }
+
+    // Show "View Summary" button if interview is completed and no decision has been made
+    if (interviewStatus === 'Completed' && summaryStatus && !firstRoundStatus) {
+      return (
+        <button
           className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
           style={{ backgroundColor: '#F58220' }}
           onClick={() => handleViewSummary(props.data.candidateEmail)}
@@ -72,8 +140,9 @@ const HRDashboard: React.FC = () => {
         </button>
       );
     }
-    return <span className="text-slate-400 text-xs italic">No Summary</span>;
-  };
+
+    return <span className="text-slate-400 text-xs italic">Pending</span>;
+  }, [candidates, handleViewSummary]);
 
   const ActionsRenderer = (props: any) => {
     return (
@@ -106,11 +175,93 @@ const HRDashboard: React.FC = () => {
     );
   };
 
+  const SecondRoundRenderer = useMemo(() => (props: any) => {
+    const secondRoundStatus = props.data.secondRoundStatus;
+    const firstRoundStatus = props.data.firstRoundStatus;
+    const interviewStatus = props.data.interviewStatus;
+    const summaryStatus = props.data.summaryStatus;
+    const currentRound = props.data.currentRound;
+
+    // If first round failed, show nothing
+    if (firstRoundStatus === 'FAIL') {
+      return <span className="text-slate-400 text-xs">-</span>;
+    }
+
+    // If second round has status, show it
+    if (secondRoundStatus === 'PASS') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+              style={{ backgroundColor: '#56C5D0', borderColor: '#56C5D0' }}>
+          Pass
+        </span>
+      );
+    }
+
+    if (secondRoundStatus === 'FAIL') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+              style={{ backgroundColor: '#ED1C24', borderColor: '#ED1C24' }}>
+          Fail
+        </span>
+      );
+    }
+
+    // If first round passed and second round is pending
+    if (firstRoundStatus === 'PASS' && secondRoundStatus === 'PENDING') {
+      // If second round interview completed, show View Summary button
+      if (currentRound === 2 && interviewStatus === 'Completed' && summaryStatus) {
+        return (
+          <button
+            className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+            style={{ backgroundColor: '#F58220' }}
+            onClick={() => handleViewSummary(props.data.candidateEmail)}
+          >
+            View Summary
+          </button>
+        );
+      }
+      
+      // If second round interview is in progress
+      if (currentRound === 2 && interviewStatus === 'Scheduled') {
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+                style={{ backgroundColor: '#F58220', borderColor: '#F58220' }}>
+            In Progress
+          </span>
+        );
+      }
+      
+      // If promoted to second round but no interview scheduled yet, show Schedule button
+      if (currentRound === 2 && interviewStatus === 'Pending') {
+        return (
+          <button
+            className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+            style={{ backgroundColor: '#56C5D0' }}
+            onClick={() => handleScheduleSecondRound(props.data.candidateEmail)}
+          >
+            Schedule
+          </button>
+        );
+      }
+      
+      // Default: Just promoted to second round, show Pending
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
+              style={{ backgroundColor: '#F58220', borderColor: '#F58220' }}>
+          Pending
+        </span>
+      );
+    }
+
+    return <span className="text-slate-400 text-xs">-</span>;
+  }, [candidates, handleViewSummary, handleScheduleSecondRound]);
+
   const columnDefs = useMemo(() => [
     { 
       field: 'candidateName', 
       headerName: 'Name', 
-      width: 200,
+      flex: 1,
+      minWidth: 150,
       cellStyle: { 
         fontWeight: '600',
         padding: '12px 16px',
@@ -121,7 +272,8 @@ const HRDashboard: React.FC = () => {
     { 
       field: 'candidateEmail', 
       headerName: 'Email', 
-      width: 240,
+      flex: 1.5,
+      minWidth: 200,
       cellStyle: { 
         color: '#4F46E5',
         padding: '12px 16px',
@@ -132,7 +284,8 @@ const HRDashboard: React.FC = () => {
     { 
       field: 'positionApplied', 
       headerName: 'Role', 
-      width: 180,
+      flex: 1,
+      minWidth: 120,
       cellStyle: {
         padding: '12px 16px',
         display: 'flex',
@@ -142,7 +295,8 @@ const HRDashboard: React.FC = () => {
     { 
       field: 'experienceYears', 
       headerName: 'Experience', 
-      width: 130,
+      flex: 0.7,
+      minWidth: 100,
       cellRenderer: (params: any) => `${params.value} `,
       cellStyle: {
         padding: '12px 16px',
@@ -155,7 +309,8 @@ const HRDashboard: React.FC = () => {
     { 
       field: 'skills', 
       headerName: 'Skills', 
-      width: 280, 
+      flex: 1.2,
+      minWidth: 150,
       tooltipField: 'skills',
       cellStyle: { 
         whiteSpace: 'nowrap',
@@ -168,8 +323,9 @@ const HRDashboard: React.FC = () => {
     },
     {
       field: 'interviewStatus',
-      headerName: 'Interview Status',
-      width: 180,
+      headerName: 'Status',
+      flex: 0.8,
+      minWidth: 100,
       cellRenderer: StatusRenderer,
       cellStyle: { 
         textAlign: 'center',
@@ -180,9 +336,11 @@ const HRDashboard: React.FC = () => {
       }
     },
     {
-      headerName: 'Interview Summary',
-      width: 180,
-      cellRenderer: SummaryRenderer,
+        field: 'firstRoundStatus',
+      headerName: 'First Round',
+      flex: 1,
+      minWidth: 120,
+      cellRenderer: FirstRoundRenderer,
       cellStyle: { 
         textAlign: 'center',
         padding: '12px 16px',
@@ -192,8 +350,23 @@ const HRDashboard: React.FC = () => {
       }
     },
     {
+      field: 'secondRoundStatus',
+      headerName: 'Second Round',
+      flex: 1,
+      minWidth: 130,
+      cellRenderer: SecondRoundRenderer,
+      cellStyle: {
+        textAlign: 'center',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }
+    },
+    {
       headerName: 'Actions',
-      width: 240,
+      flex: 1.2,
+      minWidth: 180,
       cellRenderer: ActionsRenderer,
       cellStyle: { 
         textAlign: 'center',
@@ -205,24 +378,83 @@ const HRDashboard: React.FC = () => {
       sortable: false,
       filter: false
     }
-  ], []);
+  ], [FirstRoundRenderer, SecondRoundRenderer]);
 
   const defaultColDef = useMemo(() => ({
     sortable: true,
     filter: true,
     resizable: true,
+    headerClass: 'center-header',
+    suppressSizeToFit: false
   }), []);
 
   const loadCandidates = async () => {
     try {
-      console.log('Loading candidates...');
       const response = await hrAPI.getCandidates();
-      console.log('Candidates response:', response.data);
       setCandidates(response.data);
+      // Force grid to refresh all cells after data update
+      if (gridApi) {
+        setTimeout(() => {
+          gridApi.refreshCells({ force: true });
+        }, 50);
+      }
     } catch (error) {
-      console.error('Error loading candidates:', error);
+      console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
     }
   };
+
+const validateCandidateAction = (candidateEmail: string, interviewStatus: string) => {
+  if (interviewStatus === 'Scheduled') {
+    toast.error('Interview is scheduled. Please wait for candidate to complete the interview before making a decision.');
+    return false;
+  }
+  return true;
+};
+
+const handleSelectCandidate = async (candidateEmail: string) => {
+  const candidate = candidates.find(c => c.candidateEmail === candidateEmail);
+  if (!validateCandidateAction(candidateEmail, candidate?.interviewStatus)) return;
+  
+  if (!window.confirm(`Are you sure you want to SELECT candidate ${candidateEmail}?`)) return;
+  
+  try {
+    const response = await hrAPI.selectCandidate(candidateEmail);
+    if (response.data.success) {
+      toast.success(response.data.message);
+      await loadCandidates();
+      refreshGrid(); // Refresh the grid to show updated status
+    } else {
+      toast.error(response.data.message);
+    }
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || 'Failed to select candidate');
+  }
+  setShowSummaryModal(false);
+};
+
+
+
+// Update the handleRejectCandidate function
+const handleRejectCandidate = async (candidateEmail: string) => {
+  const candidate = candidates.find(c => c.candidateEmail === candidateEmail);
+  if (!validateCandidateAction(candidateEmail, candidate?.interviewStatus)) return;
+
+  if (!window.confirm(`Are you sure you want to REJECT candidate ${candidateEmail}?`)) return;
+
+  try {
+    const response = await hrAPI.rejectCandidate(candidateEmail);
+    if (response.data.success) {
+      toast.success(response.data.message);
+      await loadCandidates();
+      refreshGrid(); // Refresh the grid to show updated status
+    } else {
+      toast.error(response.data.message);
+    }
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || 'Failed to reject candidate');
+  }
+  setShowSummaryModal(false);
+};
 
   useEffect(() => {
     loadCandidates();
@@ -243,7 +475,7 @@ const HRDashboard: React.FC = () => {
       setSelectedCandidate(response.data);
       setShowViewCandidateModal(true);
     } catch (error) {
-      console.error('Error fetching candidate details:', error);
+      console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
       toast.error('Failed to load candidate details');
     }
   };
@@ -273,34 +505,19 @@ const HRDashboard: React.FC = () => {
     formData.append('candidateEmail', candidateEmail);
 
     try {
-      console.log('Uploading resume for:', candidateEmail);
+
       const response = await hrAPI.updateResume(formData);
       if (response.data.success) {
         toast.success('Resume updated successfully!');
         loadCandidates();
       }
     } catch (error: any) {
-      console.error('Update error:', error);
+      console.error('Operation failed:', error.response?.status || 'Unknown error');
       alert(`Error: ${error.response?.data?.error || 'Failed to update resume'}`);
     }
   };
 
-  const handleViewSummary = async (candidateEmail: string) => {
-    try {
-      const response = await hrAPI.getInterviewSummary(candidateEmail);
-      console.log('Summary response:', response.data);
 
-      if (response.data) {
-        setSelectedSummary(response.data);
-        setShowSummaryModal(true);
-      } else {
-        toast.error('No summary data found');
-      }
-    } catch (error: any) {
-      console.log('Error:', error);
-      toast.error('No interview summary found');
-    }
-  };
 
   const deleteCandidate = async (candidateName: string) => {
     if (!window.confirm(`Are you sure you want to delete ${candidateName}?`)) {
@@ -312,7 +529,7 @@ const HRDashboard: React.FC = () => {
       toast.success('Candidate deleted successfully!');
       loadCandidates();
     } catch (error: any) {
-      console.error('Error deleting candidate:', error);
+      console.error('Operation failed:', error.response?.status || 'Unknown error');
       alert(`Error: ${error.response?.data?.message || 'Failed to delete candidate'}`);
     }
   };
@@ -321,7 +538,7 @@ const HRDashboard: React.FC = () => {
     try {
       await authAPI.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       dispatch(clearAuth());
       localStorage.clear();
@@ -393,7 +610,18 @@ const HRDashboard: React.FC = () => {
             </div>
           </div>
           <div className="flex-1 p-4 min-h-0">
-            <div className="ag-theme-alpine rounded-lg border border-slate-200 h-full">
+            <div className="ag-theme-alpine rounded-lg border border-slate-200 h-full w-full">
+              <style>{`
+                .center-header .ag-header-cell-label {
+                  justify-content: center;
+                }
+            .ag-tooltip {
+                background-color: white !important;
+                color: black !important;
+                border: 1px solid #ccc !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+              }
+              `}</style>
               <AgGridReact
                 rowData={candidates}
                 columnDefs={columnDefs}
@@ -407,6 +635,16 @@ const HRDashboard: React.FC = () => {
                 suppressCellFocus={true}
                 rowClass="hover:bg-gray-50"
                 suppressRowHoverHighlight={false}
+                onGridReady={(params) => {
+                  setGridApi(params.api);
+                  params.api.sizeColumnsToFit();
+                }}
+                onGridSizeChanged={(params) => {
+                  params.api.sizeColumnsToFit();
+                }}
+                onFirstDataRendered={(params) => {
+                  params.api.sizeColumnsToFit();
+                }}
               />
             </div>
           </div>
@@ -443,6 +681,10 @@ const HRDashboard: React.FC = () => {
           summary={selectedSummary}
           totalQuestions={questions.length}
           onClose={() => setShowSummaryModal(false)}
+          onSelect={handleSelectCandidate}
+          onReject={handleRejectCandidate}
+          candidateEmail={selectedSummary.candidateEmail}
+          interviewStatus={candidates.find(c => c.candidateEmail === selectedSummary.candidateEmail)?.interviewStatus}
         />
       )}
     </div>
