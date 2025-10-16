@@ -26,6 +26,7 @@ public class MonitoringController {
     @PostMapping("/log-event")
     public ResponseEntity<String> logEvent(@RequestBody Map<String, Object> eventData) {
         try {
+            System.out.println("Received log-event request: " + eventData);
             MonitoringEvent event = new MonitoringEvent();
 
             // Required fields
@@ -34,8 +35,14 @@ public class MonitoringController {
             event.setDescription((String) eventData.getOrDefault("description", ""));
             event.setMetadata((String) eventData.getOrDefault("metadata", ""));
 
+
+
             // Validate and set EventType
             String typeStr = (String) eventData.get("eventType");
+            System.out.println(typeStr);
+
+
+
             try {
                 event.setEventType(MonitoringEvent.EventType.valueOf(typeStr));
             } catch (IllegalArgumentException e) {
@@ -45,6 +52,10 @@ public class MonitoringController {
             // Timestamp is automatically set in constructor
             MonitoringEvent savedEvent =eventRepository.save(event);
 
+            if ("INTERVIEW_END".equals(typeStr)) {
+                List<MonitoringEvent> allEvents = eventRepository.findAllEventsBySessionId(event.getSessionId());
+
+            }
 
             return ResponseEntity.ok("Event logged successfully");
         } catch (Exception e) {

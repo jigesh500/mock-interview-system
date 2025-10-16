@@ -6,10 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msbcgroup.mockinterview.model.*;
-import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
-import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
-import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
-import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
+import com.msbcgroup.mockinterview.repository.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/interview")
@@ -36,6 +34,9 @@ public class InterviewController {
 
     @Autowired
     private InterviewMeetingRepository meetingRepository;
+
+    @Autowired
+    private MonitoringEventRepository eventRepository;
 
     private final ChatClient chatClient;
 
@@ -116,8 +117,10 @@ public class InterviewController {
             }
         }
 
+        List<MonitoringEvent> allEvents = eventRepository.findAllEventsBySessionId(sessionId);
+
         // Generate AI review
-        String reviewPrompt = buildReviewPrompt(questions, userAnswerMap);
+        String reviewPrompt = buildReviewPrompt(questions, userAnswerMap,allEvents  );
 
         String aiResponse = chatClient.prompt()
                 .user(reviewPrompt)
@@ -174,7 +177,7 @@ public class InterviewController {
         }
     }
 
-    private String buildReviewPrompt(List<Question> questions, Map<String, String> answers) {
+    private String buildReviewPrompt(List<Question> questions, Map<String, String> answers,List<MonitoringEvent> events) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("Please review this interview and provide a comprehensive summary:\n\n");
 
@@ -189,17 +192,38 @@ public class InterviewController {
             prompt.append("Answer: ").append(answer != null ? answer : "No answer provided").append("\n\n");
         }
 
+        Map<MonitoringEvent.EventType, Long> violationCounts = events.stream()
+                .filter(e -> e.getEventType() == MonitoringEvent.EventType.FACE_NOT_DETECTED
+                        || e.getEventType() == MonitoringEvent.EventType.MULTIPLE_FACES
+                        || e.getEventType() == MonitoringEvent.EventType.TAB_SWITCH)
+                .collect(Collectors.groupingBy(MonitoringEvent::getEventType, Collectors.counting()));
+
+        if (!violationCounts.isEmpty()) {
+            prompt.append("During the interview, the following violations occurred:\n");
+            violationCounts.forEach((type, count) ->
+                    prompt.append(type).append(": ").append(count).append(" time(s)\n")
+            );
+            prompt.append("\n");
+        }
+
         prompt.append("""
                 You are an experienced technical interviewer. Review the candidate's exam answers and generate a structured evaluation.
                 
                 If no answers are provided, the score must be 0.
-                For MCQ questions, evaluate if the selected option is correct.
-                For coding questions, evaluate logic, syntax, and approach.
+                Score (1–25) should be based only on the correctness of Multiple-Choice Question's answers and quality of coding logic.
+                - For MCQ questions, check if the selected option is correct.
+                - For coding questions, assess logic, syntax, and problem-solving approach.
+                Consider the violations and their frequency in the overall evaluation.
+                Do NOT mention specific questions or answers in the summary. Provide only a high-level evaluation of performance, strengths, weaknesses, and recommendations.
+                Include any violations and their frequency directly in the "summary" field.
+                If the candidate score is above average (score >= 15), include in the summary:
+                    - Areas where the candidate is strong.
+                    - Areas where the candidate can improve.
                 
                 Output strictly in JSON format:
                 {
-                  "score": [Number 1-10],
-                  "summary": "[One sentence summary]",
+                  "score": [Number 1-25],
+                  "summary": "[One sentence summary including performance, strengths, weaknesses, and violations ]",
                   "strengths": "[3 bullet points separated by |]",
                   "improvements": "[3 bullet points separated by |]", 
                   "recommendation": "[Hire/Further Interview/Don't Hire - One sentence]"

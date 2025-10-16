@@ -403,6 +403,10 @@ const handleViewSummary = async (candidateEmail: string) => {
     }
   };
 
+// useEffect(()=>{
+//    loadCandidates()
+//     },[candidates])
+
 const validateCandidateAction = (candidateEmail: string, interviewStatus: string) => {
   if (interviewStatus === 'Scheduled') {
     toast.error('Interview is scheduled. Please wait for candidate to complete the interview before making a decision.');
