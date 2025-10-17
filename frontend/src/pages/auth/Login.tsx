@@ -45,12 +45,12 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Welcome to HireIn</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Welcome to MSBC Group</h1>
         <button
           onClick={handleLogin}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
         >
-          Login with Auth0
+          Login
         </button>
       </div>
     </div>

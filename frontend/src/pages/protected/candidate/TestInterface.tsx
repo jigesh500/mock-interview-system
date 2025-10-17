@@ -41,6 +41,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
   const [micReady, setMicReady] = useState(false);
+  const [isSubmitting,setIsSubmitting] =useState(false)
 
   // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
@@ -75,6 +76,9 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   // Submit function
   const handleSubmit = useCallback(async () => {
     const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim() !== "");
+    if (isSubmitting) return; //
+
+      setIsSubmitting(true);
 
     try {
       const answersPayload: { [key: string]: string } = {};
@@ -92,6 +96,7 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       );
 
       if (response.data.status === "success") {
+
           deactivateSecurity();
           (window as any).deactivateCameraSecurity?.();
           try {
@@ -119,8 +124,9 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     } catch (error) {
       console.error("Error submitting interview:", error);
       alert("Failed to submit interview. Please try again.");
+      setIsSubmitting(false);
     }
-  }, [questions, answers, sessionId, onExamSubmit,user]);
+  }, [questions, answers, sessionId, onExamSubmit, user, isSubmitting]);
 
   useEffect(() => {
     if (isAuthenticated && questions.length === 0) {
@@ -377,10 +383,11 @@ if (!cameraReady || !micReady) {
                     color="error"
                     onClick={handleSubmit}
                     className="px-8 py-3 mt-4"
-                    disabled={!allQuestionsAnswered}
+                    disabled={!allQuestionsAnswered || isSubmitting} // 👈 disabled while submitting
                   >
-                    Submit
+                    {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Submit"}
                   </Button>
+
 
                   {!allQuestionsAnswered && (
                     <Typography color="error" className="mt-2 text-sm">

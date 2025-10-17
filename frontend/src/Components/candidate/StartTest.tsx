@@ -2,6 +2,7 @@ import React, { useEffect, useState ,useCallback} from 'react';
 import Editor from "@monaco-editor/react";
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
+import { useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import {
   Card,
@@ -38,6 +39,7 @@ const StartTest: React.FC = () => {
   // Move useState hooks before early return
   const [timeLeft, setTimeLeft] = useState(1 * 60); // 15 minutes
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
+const [isSubmitting,setIsSubmitting] =useState(false)
 
  useEffect(() => {
     console.log("=== AUTH STATUS CHECK ===");
@@ -78,6 +80,11 @@ const StartTest: React.FC = () => {
 
   // Submit function
 const handleSubmit = useCallback(async () => {
+//     if (isSubmittingRef.current) return; // prevent double submit
+//       isSubmittingRef.current = true;
+//        setIsSubmitting(true);
+        if (isSubmitting) return; //
+        setIsSubmitting(true);
   try {
     const answersPayload: { [key: string]: string } = {};
     questions.forEach((q, index) => {
@@ -124,8 +131,9 @@ const handleSubmit = useCallback(async () => {
   } catch (error) {
     console.error("Error submitting interview:", error);
     alert("Failed to submit interview. Please try again.");
+    setIsSubmitting(false);
   }
-}, [questions, answers, sessionId, user, isAuthenticated]);
+}, [questions, answers, sessionId, user, isAuthenticated, isSubmitting]);
 
 
   // Timer countdown
@@ -283,16 +291,17 @@ const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim()
                 color="error"
                 onClick={handleSubmit}
                 className="px-8 py-3 mt-4"
-                disabled={!allQuestionsAnswered}
+                disabled={!allQuestionsAnswered || isSubmitting} // 👈 disabled while submitting
               >
-                Submit
+                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Submit"}
               </Button>
 
-              {!allQuestionsAnswered && (
-                <Typography color="error" className="mt-2 text-sm">
-                  You must attempt all questions before submitting.
-                </Typography>
-              )}
+
+                            {!allQuestionsAnswered && (
+                              <Typography color="error" className="mt-2 text-sm">
+                                You must attempt all questions before submitting.
+                              </Typography>
+                            )}
             </Box>
           )}
         </Box>
@@ -301,28 +310,5 @@ const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim()
   );
 };
 
-export default StartTest;tems-center">
-              <Button
-                variant="contained"
-                color="error"
-                onClick={handleSubmit}
-                className="px-8 py-3 mt-4"
-                disabled={!allQuestionsAnswered}   // disable if not all answered
-              >
-                Submit
-              </Button>
-
-              {!allQuestionsAnswered && (
-                <Typography color="error" className="mt-2 text-sm">
-                  You must attempt all questions before submitting.
-                </Typography>
-              )}
-            </Box>
-          )}
-        </Box>
-      </CardContent>
-    </Card>
-  );
-};
 
 export default StartTest;

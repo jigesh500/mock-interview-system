@@ -209,7 +209,8 @@ const handleViewSummary = async (candidateEmail: string) => {
     // If first round passed and second round is pending
     if (firstRoundStatus === 'PASS' && secondRoundStatus === 'PENDING') {
       // If second round interview completed, show View Summary button
-      if (currentRound === 2 && interviewStatus === 'Completed' && summaryStatus) {
+      <span className="text-slate-400 text-xs italic">Pending</span>;
+      if (currentRound === 2 && secondRoundStatus === 'Completed' && summaryStatus) {
         return (
           <button
             className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
@@ -220,7 +221,7 @@ const handleViewSummary = async (candidateEmail: string) => {
           </button>
         );
       }
-      
+
       // If second round interview is in progress
       if (currentRound === 2 && interviewStatus === 'Scheduled') {
         return (
