@@ -192,6 +192,8 @@ public class InterviewController {
             prompt.append("Answer: ").append(answer != null ? answer : "No answer provided").append("\n\n");
         }
 
+
+
         Map<MonitoringEvent.EventType, Long> violationCounts = events.stream()
                 .filter(e -> e.getEventType() == MonitoringEvent.EventType.FACE_NOT_DETECTED
                         || e.getEventType() == MonitoringEvent.EventType.MULTIPLE_FACES
@@ -208,27 +210,45 @@ public class InterviewController {
 
         prompt.append("""
                 You are an experienced technical interviewer. Review the candidate's exam answers and generate a structured evaluation.
-                
-                If no answers are provided, the score must be 0.
-                Score (1–25) should be based only on the correctness of Multiple-Choice Question's answers and quality of coding logic.
-                - For MCQ questions, check if the selected option is correct.
-                - For coding questions, assess logic, syntax, and problem-solving approach.
-                Consider the violations and their frequency in the overall evaluation.
-                Do NOT mention specific questions or answers in the summary. Provide only a high-level evaluation of performance, strengths, weaknesses, and recommendations.
-                Include any violations and their frequency directly in the "summary" field.
-                If the candidate score is above average (score >= 15), include in the summary:
-                    - Areas where the candidate is strong.
-                    - Areas where the candidate can improve.
-                
-                Output strictly in JSON format:
-                {
-                  "score": [Number 1-25],
-                  "summary": "[One sentence summary including performance, strengths, weaknesses, and violations ]",
-                  "strengths": "[3 bullet points separated by |]",
-                  "improvements": "[3 bullet points separated by |]", 
-                  "recommendation": "[Hire/Further Interview/Don't Hire - One sentence]"
-                }
-                """);
+        
+        SCORING INSTRUCTIONS:
+        - Total questions: 25 (20 MCQ + 5 coding)
+        - Each question is worth exactly 1 point
+        - No negative marking
+        - Score range: 0-25
+        
+        For MCQ questions:
+        - Award 1 point if the selected option matches the correct answer
+        - Award 0 points if incorrect or no answer provided
+        
+        For coding questions:
+        - Award 1 point if the solution demonstrates correct logic and approach
+        - Award 0 points if the logic is fundamentally flawed or no solution provided
+        - Minor syntax errors should not result in 0 points if the approach is correct
+        
+        VIOLATIONS:
+        - Do NOT deduct points for violations
+        - Mention violations in the summary field as observational data
+        - Consider violations only in the recommendation, not the score
+        
+        EVALUATION GUIDELINES:
+        - Do NOT mention specific questions or answers in the summary
+        - Provide only a high-level evaluation of performance
+        - Include any violations and their frequency directly in the "summary" field
+        
+        If the candidate score is above average (score >= 15), include in the summary:
+        - Areas where the candidate is strong
+        - Areas where the candidate can improve
+        
+        Output strictly in JSON format:
+        {
+          "score": [Number 0-25],
+          "summary": "[One sentence summary including performance, strengths, weaknesses, and violations]",
+          "strengths": "[3 bullet points separated by |]",
+          "improvements": "[3 bullet points separated by |]",
+          "recommendation": "[Hire/Further Interview/Don't Hire - One sentence]"
+        }
+        """);
 
         return prompt.toString();
     }
@@ -311,7 +331,7 @@ public class InterviewController {
                     You are an interview question generator.
                     Generate exactly 10 interview questions tailored to the candidate's background.
                 
-                    The questions must be a **mix of types**:
+                    Total questions must be 25 and **mix of types**:
                      - 20 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
                      - 5 Coding/Practical problems (coding challenges, logic-based coding exercises solvable within 5–10 minutes).
                 
