@@ -37,6 +37,31 @@ const HRDashboard: React.FC = () => {
   const [selectedSummary, setSelectedSummary] = useState<any>(null);
    const { questions } = useAppSelector((state) => state.test);
 
+  // Derived counts for dashboard overview
+  const { passedCount, failedCount, inProgressCount } = useMemo(() => {
+    let passed = 0;
+    let failed = 0;
+    let inProgress = 0;
+
+    candidates.forEach(candidate => {
+      if (candidate.secondRoundStatus === 'PASS') {
+        passed++;
+      } else if (candidate.firstRoundStatus === 'FAIL' || candidate.secondRoundStatus === 'FAIL') {
+        failed++;
+      } else {
+        // If not explicitly passed or failed, consider them in progress
+        // This covers 'Pending', 'Scheduled', 'Completed' (first round, no decision),
+        // and 'PASS' (first round) but second round is 'PENDING' or scheduled.
+        inProgress++;
+      }
+    });
+    return {
+      passedCount: passed,
+      failedCount: failed,
+      inProgressCount: inProgress,
+    };
+  }, [candidates]);
+
 
   // Cell renderer components
   const StatusRenderer = (props: any) => {
@@ -379,7 +404,7 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
     suppressSizeToFit: false
   }), []);
 
-  const loadCandidates = async () => {
+    const loadCandidates = useCallback(async () => {
     try {
       const response = await hrAPI.getCandidates();
       setCandidates(response.data);
@@ -392,12 +417,7 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
     } catch (error) {
       console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
     }
-  };
-
-// useEffect(()=>{
-//    loadCandidates()
-//     },[candidates])
-
+}, [gridApi]);
 const validateCandidateAction = (candidateEmail: string, interviewStatus: string) => {
   if (interviewStatus === 'Scheduled') {
     toast.error('Interview is scheduled. Please wait for candidate to complete the interview before making a decision.');
@@ -451,9 +471,18 @@ const handleRejectCandidate = async (candidateEmail: string) => {
   setShowSummaryModal(false);
 };
 
-  useEffect(() => {
-    loadCandidates();
-  }, []);
+   useEffect(() => {
+      // Load candidates immediately when the component mounts
+      loadCandidates();
+
+      // Set up an interval to refresh the data every 30 seconds
+      const intervalId = setInterval(() => {
+        loadCandidates();
+      }, 5000); // 5000 milliseconds = 5 seconds
+
+      // Cleanup function: clear the interval when the component unmounts
+      return () => clearInterval(intervalId);
+    }, [loadCandidates]); // Re-run if loadCandidates changes
 
   const handleUpdateResume = (candidateEmail: string) => {
     setUpdateCandidateEmail(candidateEmail);
@@ -597,10 +626,21 @@ const handleRejectCandidate = async (candidateEmail: string) => {
           <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">Candidates List</h2>
-              </div>
-              <div className="text-sm text-slate-500">
-                Total: <span className="font-semibold text-slate-700">{candidates.length}</span> candidates
+                <h2 className="text-xl font-bold text-slate-800 mb-1">Candidates List</h2>
+                <div className="flex gap-4 text-sm text-slate-600">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span> Total: <span className="font-semibold text-slate-700">{candidates.length}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Passed: <span className="font-semibold text-slate-700">{passedCount}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span> In Progress: <span className="font-semibold text-slate-700">{inProgressCount}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span> Failed: <span className="font-semibold text-slate-700">{failedCount}</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
