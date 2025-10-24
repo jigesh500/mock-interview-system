@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
@@ -11,6 +11,7 @@ import AddCandidateModal from '../Components/hr/AddCandidateModal';
 import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
 import toast, { Toaster } from 'react-hot-toast';
 import ViewCandidateModal from '../Components/hr/ViewCandidateModal';
+import ScheduleSecondRoundModal from '../Components/hr/ScheduleSecondRoundModal';
 import ViewSummaryModal from '../Components/hr/ViewSummaryModal';
 import { useAppSelector } from '../redux/hooks';
 
@@ -32,6 +33,7 @@ const HRDashboard: React.FC = () => {
   const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<any>(null);
    const { questions } = useAppSelector((state) => state.test);
 
@@ -67,7 +69,7 @@ const refreshGrid = () => {
   }
 };
 
-const handleViewSummary = async (candidateEmail: string) => {
+const handleViewSummary = useCallback(async (candidateEmail: string) => {
     try {
       const response = await hrAPI.getInterviewSummary(candidateEmail);
 
@@ -81,29 +83,21 @@ const handleViewSummary = async (candidateEmail: string) => {
       console.error('Operation failed:', error.response?.status || 'Unknown error');
       toast.error('No interview summary found');
     }
-  };
+  }, []);
 
-  const handleScheduleSecondRound = async (candidateEmail: string) => {
-    if (!window.confirm(`Schedule second round interview for ${candidateEmail}?`)) return;
-    
-    try {
-      const response = await hrAPI.scheduleSecondRound(candidateEmail);
-      if (response.data.success) {
-        toast.success(response.data.message);
-        await loadCandidates();
-        refreshGrid();
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to schedule second round');
-    }
-  };
+  // New function to open the scheduling modal
+  const handleOpenScheduleModal = useCallback((candidateEmail: string) => {
+     setCandidateEmail(candidateEmail);
+     setShowScheduleModal(true);
+   }, []);
+
 
   const FirstRoundRenderer = useMemo(() => (props: any) => {
     const firstRoundStatus = props.data.firstRoundStatus;
     const interviewStatus = props.data.interviewStatus;
     const summaryStatus = props.data.summaryStatus;
+     const secondRoundInterviewerName = props.data.secondRoundInterviewerName;
+         const candidateEmail = props.data.candidateEmail;
     const currentRound = props.data.currentRound;
 
     if (firstRoundStatus === 'FAIL') {
@@ -142,7 +136,7 @@ const handleViewSummary = async (candidateEmail: string) => {
     }
 
     return <span className="text-slate-400 text-xs italic">Pending</span>;
-  }, [candidates, handleViewSummary]);
+  }, [candidates, handleViewSummary]); // handleViewSummary is now stable due to useCallback
 
   const ActionsRenderer = (props: any) => {
     return (
@@ -176,18 +170,21 @@ const handleViewSummary = async (candidateEmail: string) => {
   };
 
   const SecondRoundRenderer = useMemo(() => (props: any) => {
-    const secondRoundStatus = props.data.secondRoundStatus;
-    const firstRoundStatus = props.data.firstRoundStatus;
-    const interviewStatus = props.data.interviewStatus;
-    const summaryStatus = props.data.summaryStatus;
-    const currentRound = props.data.currentRound;
+    const {
+      secondRoundInterviewerName,
+      candidateEmail,
+      secondRoundStatus,
+      firstRoundStatus,
+      summaryStatus,
+    } = props.data;
 
     // If first round failed, show nothing
     if (firstRoundStatus === 'FAIL') {
       return <span className="text-slate-400 text-xs">-</span>;
     }
 
-    // If second round has status, show it
+    // If an interviewer is assigned, show their name and a change button
+    // If second round has a final PASS/FAIL status, show it
     if (secondRoundStatus === 'PASS') {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
@@ -206,56 +203,49 @@ const handleViewSummary = async (candidateEmail: string) => {
       );
     }
 
-    // If first round passed and second round is pending
-    if (firstRoundStatus === 'PASS' && secondRoundStatus === 'PENDING') {
-      // If second round interview completed, show View Summary button
-      <span className="text-slate-400 text-xs italic">Pending</span>;
-      if (currentRound === 2 && secondRoundStatus === 'Completed' && summaryStatus) {
-        return (
-          <button
-            className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-            style={{ backgroundColor: '#F58220' }}
-            onClick={() => handleViewSummary(props.data.candidateEmail)}
-          >
-            View Summary
-          </button>
-        );
-      }
-
-      // If second round interview is in progress
-      if (currentRound === 2 && interviewStatus === 'Scheduled') {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
-                style={{ backgroundColor: '#F58220', borderColor: '#F58220' }}>
-            In Progress
-          </span>
-        );
-      }
-      
-      // If promoted to second round but no interview scheduled yet, show Schedule button
-      if (currentRound === 2 && interviewStatus === 'Pending') {
-        return (
-          <button
-            className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-            style={{ backgroundColor: '#56C5D0' }}
-            onClick={() => handleScheduleSecondRound(props.data.candidateEmail)}
-          >
-            Schedule
-          </button>
-        );
-      }
-      
-      // Default: Just promoted to second round, show Pending
+    // If the 2nd round interview is completed and has a summary, show View Summary button
+    if (secondRoundStatus === 'COMPLETED' && summaryStatus) {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white border"
-              style={{ backgroundColor: '#F58220', borderColor: '#F58220' }}>
-          Pending
-        </span>
+        <button
+          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#F58220' }}
+          onClick={() => handleViewSummary(candidateEmail)}
+        >
+          View Summary
+        </button>
+      );
+    }
+
+    // If an interviewer is assigned (i.e., scheduled), show their name and a change button
+    if (secondRoundInterviewerName) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-xs font-semibold text-slate-700">{secondRoundInterviewerName}</span>
+          <button
+            className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+            onClick={() => handleOpenScheduleModal(candidateEmail)}
+          >
+            (Change)
+          </button>
+        </div>
+      );
+    }
+
+    // If first round passed and second round is pending (and not yet scheduled), show Schedule button
+    if (firstRoundStatus === 'PASS' && secondRoundStatus === 'PENDING') {
+      return (
+        <button
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          style={{ backgroundColor: '#56C5D0' }}
+          onClick={() => handleOpenScheduleModal(candidateEmail)}
+        >
+            Assign
+        </button>
       );
     }
 
     return <span className="text-slate-400 text-xs">-</span>;
-  }, [candidates, handleViewSummary, handleScheduleSecondRound]);
+  }, [candidates, handleViewSummary, handleOpenScheduleModal]); // Added handleOpenScheduleModal to dependencies
 
   const columnDefs = useMemo(() => [
     { 
@@ -672,6 +662,14 @@ const handleRejectCandidate = async (candidateEmail: string) => {
         />
       )}
 
+{showScheduleModal && (
+         <ScheduleSecondRoundModal
+           isOpen={showScheduleModal}
+           onClose={() => setShowScheduleModal(false)}
+           candidateEmail={candidateEmail}
+           onScheduled={loadCandidates}
+         />
+       )}
       {showViewCandidateModal && selectedCandidate && (
         <ViewCandidateModal
           isOpen={showViewCandidateModal}

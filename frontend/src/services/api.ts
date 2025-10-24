@@ -8,7 +8,6 @@ const api = axios.create({
 });
 
 // Auth APIs
-// Auth APIs
 export const authAPI = {
   getCurrentUser: () => api.get('/api/auth/user'),
   logout: () => api.get('/hr/logout'), // Use the HRController logout endpoint
@@ -19,23 +18,27 @@ export const hrAPI = {
   createMeeting: () => api.post('/hr/create-meeting'),
   getMyMeetings: () => api.get('/hr/meetings'),
   getCandidates: () => api.get('/hr/dashboard'),
-   // CORRECT - This sends query parameters
-   assignCandidate: (meetingId: string, candidateEmail: string) =>
-     api.post(`/hr/assign-candidate?meetingId=${meetingId}&candidateEmail=${candidateEmail}`),
-  uploadResume: (formData: FormData) => api.post('/hr/upload-resume', formData),
-  addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
- deleteCandidate: (candidateName: string) =>
-   api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
-updateResume: (formData: FormData) => api.put('/hr/update-resume', formData),
-getInterviewSummary: (candidateEmail: string) => api.get(`/hr/interview-summary/${candidateEmail}`),
-getCandidateByEmail: (candidateEmail: string) => api.get(`/hr/candidates/${candidateEmail}`),
-selectCandidate: (candidateEmail: string) =>
-  api.post(`/hr/candidate/${candidateEmail}/round/select`),
-rejectCandidate: (candidateEmail: string) =>
-  api.post(`/hr/candidate/${candidateEmail}/round/reject`),
-scheduleSecondRound: (candidateEmail: string) =>
-  api.post(`/hr/candidate/${candidateEmail}/schedule-second-round`),
+  assignCandidate: (meetingId, candidateEmail) =>
+    api.post(`/hr/assign-candidate?meetingId=${meetingId}&candidateEmail=${candidateEmail}`),
+  uploadResume: (formData) => api.post('/hr/upload-resume', formData),
+  addCandidate: (candidateData) => api.post('/hr/candidates', candidateData),
+  deleteCandidate: (candidateName) =>
+    api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
+  updateResume: (formData) => api.put('/hr/update-resume', formData),
+  getInterviewSummary: (candidateEmail) =>
+    api.get(`/hr/interview-summary/${candidateEmail}`),
+  getCandidateByEmail: (candidateEmail) =>
+    api.get(`/hr/candidates/${candidateEmail}`),
+  selectCandidate: (candidateEmail) =>
+    api.post(`/hr/candidate/${candidateEmail}/round/select`),
+  rejectCandidate: (candidateEmail) =>
+    api.post(`/hr/candidate/${candidateEmail}/round/reject`),
 
+  // ✅ Keep only one version of scheduleSecondRound
+  scheduleSecondRound: async (scheduleData) => {
+    const response = await api.post('/hr/schedule-second-round', scheduleData);
+    return response.data;
+  },
 };
 
 // Candidate APIs
@@ -46,8 +49,9 @@ export const candidateAPI = {
 
 // Interview APIs
 export const interviewAPI = {
-  startWithSession: (sessionId: string) => api.get(`/interview/start-with-session?sessionId=${sessionId}`),
-  submitAnswers: (sessionId: string, answers: any) =>
+  startWithSession: (sessionId) =>
+    api.get(`/interview/start-with-session?sessionId=${sessionId}`),
+  submitAnswers: (sessionId, answers) =>
     api.post(`/interview/submit-answers?sessionId=${sessionId}`, answers),
 };
 

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "candidate_profile")
-public class CandidateProfile {
+    public class CandidateProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +48,10 @@ public class CandidateProfile {
     private String decisionMadeBy;
 
     private String interviewStatus = "PENDING";
+
+    private String secondRoundInterviewerEmail;
+
+    private String secondRoundInterviewerName;
 
 
     public CandidateProfile() {
@@ -182,6 +186,22 @@ public class CandidateProfile {
         this.location = location;
     }
 
+
+    public String getSecondRoundInterviewerEmail() {
+        return secondRoundInterviewerEmail;
+    }
+
+    public void setSecondRoundInterviewerEmail(String secondRoundInterviewerEmail) {
+        this.secondRoundInterviewerEmail = secondRoundInterviewerEmail;
+    }
+
+    public String getSecondRoundInterviewerName() {
+        return secondRoundInterviewerName;
+    }
+
+    public void setSecondRoundInterviewerName(String secondRoundInterviewerName) {
+        this.secondRoundInterviewerName = secondRoundInterviewerName;
+    }
     // Helper method to check if candidate needs second round
     public boolean needsSecondRound() {
         return this.firstRoundStatus == RoundStatus.PASS && 

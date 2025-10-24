@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -65,6 +66,8 @@ public class HRController {
             candidateData.put("skills", candidate.getSkills());
             candidateData.put("firstRoundStatus", candidate.getFirstRoundStatus());
             candidateData.put("secondRoundStatus", candidate.getSecondRoundStatus());
+            candidateData.put("secondRoundInterviewerEmail", candidate.getSecondRoundInterviewerEmail());
+            candidateData.put("secondRoundInterviewerName", candidate.getSecondRoundInterviewerName());
             candidateData.put("currentRound", candidate.getCurrentRound());
             candidateData.put("lastDecisionTimestamp", candidate.getLastDecisionTimestamp());
             candidateData.put("decisionMadeBy", candidate.getDecisionMadeBy());
@@ -195,6 +198,30 @@ public class HRController {
         }
     }
 
+
+    @PostMapping("/schedule-second-round")
+    public ResponseEntity<?> scheduleSecondRound(@RequestBody ScheduleRequest scheduleRequest) {
+        try {
+            // Find the candidate by email
+            CandidateProfile candidate = candidateProfileRepository.findByCandidateEmail(scheduleRequest.getCandidateEmail())
+                    .orElseThrow(() -> new RuntimeException("Candidate not found with email: " + scheduleRequest.getCandidateEmail()));
+
+            // Update the candidate's profile with the interviewer's details
+            candidate.setSecondRoundInterviewerEmail(scheduleRequest.getInterviewerEmail());
+            candidate.setSecondRoundInterviewerName(scheduleRequest.getInterviewerName());
+
+            // Update the status to show it's scheduled
+            candidate.setSecondRoundStatus(RoundStatus.SCHEDULED);
+
+            // Save the changes to the database
+            candidateProfileRepository.save(candidate);
+
+            return ResponseEntity.ok().body("Second round scheduled successfully for " + candidate.getCandidateName());
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 
     @PostMapping("/candidate/{candidateEmail}/round/reject")
     public ResponseEntity<Map<String, Object>> rejectCandidate(
