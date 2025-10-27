@@ -4,6 +4,8 @@ import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
 import { useExamSecurity } from '../../../hooks/useExamSecurity';
 import { useParams } from 'react-router-dom';
 import { interviewAPI } from '../../../services/api';
+import { executeCode } from '../../../services/codeExecution';
+import toast, { Toaster } from 'react-hot-toast';
 import {
   Card,
   CardContent,
@@ -33,8 +35,8 @@ import MicrophoneMonitor from '../../../Components/MicrophoneMonitor';
 interface StartTestProps {
   onExamSubmit?: () => void;
 }
-const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
+const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
@@ -43,14 +45,14 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
   const [micReady, setMicReady] = useState(false);
-  const [isSubmitting,setIsSubmitting] =useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [codeOutput, setCodeOutput] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
 
-  // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
-    console.warn('Security violation:', type, message); // For debugging
+    console.warn('Security violation:', type, message);
   }, []);
 
-  // Audio violation handler
   const handleAudioViolation = useCallback(async (type: string, message: string) => {
     console.warn('Audio violation:', type, message);
     try {
@@ -67,11 +69,10 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
 
-  // Submit function
   const handleSubmit = useCallback(async () => {
-    if (isSubmitting) return; //
+    if (isSubmitting) return;
 
-      setIsSubmitting(true);
+    setIsSubmitting(true);
 
     try {
       const answersPayload: { [key: string]: string } = {};
@@ -79,57 +80,54 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         answersPayload["answer" + index] = answers[q.id] ?? "";
       });
 
-      const response = await interviewAPI.submitAnswers(sessionId, answersPayload);
+      const response = await interviewAPI.submitAnswers(answersPayload, sessionId);
 
       if (response.data.status === "success") {
-          deactivateSecurity();
-          (window as any).deactivateCameraSecurity?.();
-          try {
-            await interviewAPI.logEvent({
-              sessionId,
-              eventType: 'INTERVIEW_END',
-              description: 'Interview completed successfully',
-              metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
-            });
-            await new Promise(resolve => setTimeout(resolve, 700));
-          } catch (err) {
-            console.error('Error logging interview end:', err);
-          }
+        deactivateSecurity();
+        (window as any).deactivateCameraSecurity?.();
+        try {
+          await interviewAPI.logEvent({
+            sessionId,
+            eventType: 'INTERVIEW_END',
+            description: 'Interview completed successfully',
+            metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+          });
+          await new Promise(resolve => setTimeout(resolve, 700));
+        } catch (err) {
+          console.error('Error logging interview end:', err);
+        }
 
-        alert("Interview submitted successfully!");
+        toast.success("Interview submitted successfully!");
         if (onExamSubmit) onExamSubmit();
-        window.location.href = '/thank-you';
+        setTimeout(() => {
+          window.location.href = '/thank-you';
+        }, 1500);
       }
     } catch (error) {
-      console.error("Error submitting interview:", error); // Keep for debugging
-      alert("Failed to submit interview. Please try again.");
+      console.error("Error submitting interview:", error);
+      toast.error("Failed to submit interview. Please try again.");
       setIsSubmitting(false);
     }
   }, [questions, answers, sessionId, onExamSubmit, isSubmitting, deactivateSecurity]);
 
   useEffect(() => {
-    // Fetch questions when the component mounts with a sessionId from the URL
     const startInterview = async () => {
       if (urlSessionId) {
         try {
-          dispatch(resetTestState()); // Clear any previous test state
+          dispatch(resetTestState());
           const response = await interviewAPI.startInterviewWithSession(urlSessionId);
           dispatch(setQuestions(response.data.questions));
           dispatch(setReduxSessionId(response.data.sessionId));
         } catch (error) {
           console.error("Failed to start interview:", error);
-          alert("Could not start the interview. The link may be invalid or expired.");
-          // Optionally navigate to an error page
-          // navigate('/invalid-link');
+          toast.error("Could not start the interview. The link may be invalid or expired.");
         }
       }
     }
     startInterview();
   }, [dispatch, urlSessionId]);
 
-  // Activate exam security when test starts
   useEffect(() => {
-    // Activate security as soon as questions are loaded, no auth check needed
     if (questions.length > 0) {
       activateSecurity();
     }
@@ -137,7 +135,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   useEffect(() => {
     if (timeLeft <= 0) {
-      alert("Time is up! Submitting your test...");
+      toast.error("Time is up! Submitting your test...");
       handleSubmit();
       return;
     }
@@ -146,39 +144,45 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
 
-if (!cameraReady || !micReady) {
+  if (!cameraReady || !micReady) {
     return (
-      <Box className="flex justify-center items-center h-screen">
-        <Card className="p-8 text-center">
-          <Typography variant="h6" className="mb-4">
-            📷🎤 Camera & Microphone Permission Required
-          </Typography>
-          <Typography className="mb-4">
-            Please allow camera and microphone access to start your interview
-          </Typography>
-          <div className="space-y-4">
-            <CameraMonitor
-              sessionId={sessionId || ''}
-              onCameraReady={setCameraReady}
-            />
-            <MicrophoneMonitor
-              sessionId={sessionId || ''}
-              onMicReady={setMicReady}
-              onAudioViolation={handleAudioViolation}
-              threshold={80}
-            />
-          </div>
-        </Card>
-      </Box>
+      <>
+        <Toaster position="top-center" />
+        <Box className="flex justify-center items-center h-screen">
+          <Card className="p-8 text-center">
+            <Typography variant="h6" className="mb-4">
+              📷🎤 Camera & Microphone Permission Required
+            </Typography>
+            <Typography className="mb-4">
+              Please allow camera and microphone access to start your interview
+            </Typography>
+            <div className="space-y-4">
+              <CameraMonitor
+                sessionId={sessionId || ''}
+                onCameraReady={setCameraReady}
+              />
+              <MicrophoneMonitor
+                sessionId={sessionId || ''}
+                onMicReady={setMicReady}
+                onAudioViolation={handleAudioViolation}
+                threshold={80}
+              />
+            </div>
+          </Card>
+        </Box>
+      </>
     );
   }
 
   if (questions.length === 0) {
     return (
-      <Box className="flex justify-center items-center h-64">
-        <CircularProgress />
-        <Typography className="ml-4">Loading interview questions...</Typography>
-      </Box>
+      <>
+        <Toaster position="top-center" />
+        <Box className="flex justify-center items-center h-64">
+          <CircularProgress />
+          <Typography className="ml-4">Loading interview questions...</Typography>
+        </Box>
+      </>
     );
   }
 
@@ -197,189 +201,209 @@ if (!cameraReady || !micReady) {
     dispatch(saveAnswer({ questionId: currentQuestion.id, answer: event.target.value }));
   };
 
+  const handleCodeChange = (value: string | undefined) => {
+    dispatch(saveAnswer({ questionId: currentQuestion.id, answer: value || "" }));
+  };
+
+  const handleExecuteCode = async () => {
+    if (!selectedAnswer.trim()) {
+      toast.error('Please write some code first');
+      return;
+    }
+
+    setIsExecuting(true);
+    setCodeOutput('Executing...');
+    
+    const result = await executeCode(selectedAnswer, currentLanguage);
+    
+    if (result.error) {
+      setCodeOutput(`Error: ${result.error}`);
+    } else {
+      setCodeOutput(result.output || 'No output');
+    }
+    
+    setIsExecuting(false);
+  };
+
   return (
-    <Box className="flex h-screen bg-gray-100">
-      {/* Left Panel - Camera + Sidebar */}
-      <Box className="w-80 flex flex-col">
-        {/* Camera & Microphone Monitor - Top */}
-        <Box className="bg-white p-2 m-2 rounded shadow-lg">
-          <Box className="w-full space-y-2">
-            <CameraMonitor sessionId={sessionId}
-            onCameraReady={setCameraReady}
-            onInterviewEnd={() => {
-                deactivateSecurity();
-                (window as any).deactivateCameraSecurity?.();
-              }}/>
-            <MicrophoneMonitor
-              sessionId={sessionId}
-              onMicReady={setMicReady}
-              onAudioViolation={handleAudioViolation}
-              threshold={80}
-            />
+    <>
+      <Toaster position="top-center" />
+      <Box className="flex h-screen bg-gray-100">
+        {/* Left Panel - Camera + Sidebar */}
+        <Box className="w-80 flex flex-col">
+          {/* Camera & Microphone Monitor - Top */}
+          <Box className="bg-white p-2 m-2 rounded shadow-lg">
+            <Box className="w-full space-y-2">
+              <CameraMonitor
+                sessionId={sessionId}
+                onCameraReady={setCameraReady}
+                onInterviewEnd={() => {
+                  deactivateSecurity();
+                  (window as any).deactivateCameraSecurity?.();
+                }}
+              />
+              <MicrophoneMonitor
+                sessionId={sessionId}
+                onMicReady={setMicReady}
+                onAudioViolation={handleAudioViolation}
+                threshold={80}
+              />
+            </Box>
+          </Box>
+
+          {/* Sidebar - Below Camera */}
+          <Box className="flex-1">
+            <TestSidebar />
           </Box>
         </Box>
 
-        {/* Sidebar - Below Camera */}
-        <Box className="flex-1">
-          <TestSidebar />
-        </Box>
-      </Box>
+        {/* Main Content */}
+        <Box className="flex-1 p-4">
+          <Card className="h-full bg-white shadow-lg">
+            <CardContent className="p-6">
+              {/* Header with Circular Timer */}
+              <Box className="mb-4 flex justify-between items-center">
+                <Typography variant="h6" className="text-gray-600">
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </Typography>
 
-      {/* Main Content */}
-      <Box className="flex-1 p-4">
-        <Card className="h-full bg-white shadow-lg">
-          <CardContent className="p-6">
-            {/* Header with Circular Timer */}
-            <Box className="mb-4 flex justify-between items-center">
-              <Typography variant="h6" className="text-gray-600">
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </Typography>
-
-              <Box sx={{ position: "relative", display: "inline-flex" }}>
-                <CircularProgress
-                  variant="determinate"
-                  value={(timeLeft / (15 * 60)) * 100}
-                  size={90}
-                  thickness={5}
-                  color={timeLeft <= 30 ? "error" : "primary"}
-                />
-                <Box
-                  sx={{
-                    top: 0, left: 0, bottom: 0, right: 0,
-                    position: "absolute",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: "bold",
-                    fontSize: "1.5rem",
-                    color: timeLeft <= 30 ? "red" : "inherit",
-                    transition: "color 0.3s"
-                  }}
-                >
-                  {formatTime(timeLeft)}
+                <Box sx={{ position: "relative", display: "inline-flex" }}>
+                  <CircularProgress
+                    variant="determinate"
+                    value={(timeLeft / (15 * 60)) * 100}
+                    size={90}
+                    thickness={5}
+                    color={timeLeft <= 30 ? "error" : "primary"}
+                  />
+                  <Box
+                    sx={{
+                      top: 0, left: 0, bottom: 0, right: 0,
+                      position: "absolute",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Typography variant="caption" component="div" color="text.secondary" className="font-bold">
+                      {formatTime(timeLeft)}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
-            </Box>
 
-            {/* Progress Bar */}
-            <div className="bg-gray-200 rounded-full h-2 mb-4">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-              />
-            </div>
+              {/* Question Content */}
+              <Box className="mb-6">
+                <Typography variant="h6" className="mb-4 font-semibold">
+                  {currentQuestion.question}
+                </Typography>
 
-            {/* Question */}
-            <Typography variant="h5" className="mb-6 font-semibold leading-relaxed" sx={{ minHeight: 120 }}>
-              {currentQuestion.question}
-            </Typography>
+                {/* MCQ Questions */}
+                {currentQuestion.type === "MCQ" && currentQuestion.options && (
+                  <FormControl component="fieldset" className="w-full">
+                    <RadioGroup
+                      value={selectedAnswer}
+                      onChange={handleAnswerChange}
+                      className="space-y-2"
+                    >
+                      {currentQuestion.options.map((option, index) => (
+                        <FormControlLabel
+                          key={index}
+                          value={option}
+                          control={<Radio />}
+                          label={option}
+                          className="border rounded p-2 hover:bg-gray-50"
+                        />
+                      ))}
+                    </RadioGroup>
+                  </FormControl>
+                )}
 
-            {/* Question Type */}
-            {currentQuestion.type?.toLowerCase() === 'mcq' ? (
-              <FormControl component="fieldset" className="w-full">
-                <RadioGroup
-                  value={selectedAnswer}
-                  onChange={handleAnswerChange}
-                  name={`question-${currentQuestion.id}`}
-                >
-                  {currentQuestion.options?.map((option, index) => (
-                    <FormControlLabel
-                      key={index}
-                      value={option}
-                      control={<Radio color="primary" />}
-                      label={<Typography variant="body1">{option}</Typography>}
-                      sx={{
-                        margin: 0,
-                        width: '100%',
-                        border: selectedAnswer === option ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                        borderRadius: '8px',
+                {/* Coding Questions */}
+                {currentQuestion.type === "Coding" && (
+                  <Box className="border rounded">
+                    <Box className="flex justify-between items-center p-2 bg-gray-100 border-b">
+                      <select 
+                        value={currentLanguage} 
+                        onChange={(e) => setCurrentLanguage(e.target.value)}
+                        className="px-2 py-1 border rounded"
+                      >
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="cpp">C++</option>
+                        <option value="c">C</option>
+                      </select>
+                      <button
+                        onClick={handleExecuteCode}
+                        disabled={isExecuting}
+                        className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 disabled:opacity-50"
+                      >
+                        {isExecuting ? 'Running...' : 'Run Code'}
+                      </button>
+                    </Box>
+                    <Editor
+                      height="300px"
+                      language={currentLanguage}
+                      value={selectedAnswer}
+                      onChange={handleCodeChange}
+                      theme="vs-dark"
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        wordWrap: "on",
+                        automaticLayout: true,
                       }}
                     />
-                  ))}
-                </RadioGroup>
-              </FormControl>
-            ) : currentQuestion.type?.toLowerCase() === 'coding' ? (
-              <Box className="w-full">
-                <Typography variant="subtitle1" className="mb-2 font-medium">Write your code:</Typography>
-                <Editor
-                  height="300px"
-                  language={currentLanguage}
-                  value={selectedAnswer}
-                  onChange={(value) => dispatch(saveAnswer({ questionId: currentQuestion.id, answer: value || "" }))}
-                  theme="vs-dark"
-                  options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true }}
-                />
+                    <Box className="p-3 bg-black text-green-400 font-mono text-sm min-h-[80px] border-t">
+                      <div className="text-gray-300 mb-1">Output:</div>
+                      <pre className="whitespace-pre-wrap">{codeOutput}</pre>
+                    </Box>
+                  </Box>
+                )}
               </Box>
-            ) : (
-              <Typography color="error">Unknown question type</Typography>
-            )}
 
-            {/* Navigation & Submit */}
-            <Box className="mt-8 flex flex-col items-center gap-4">
-              <Box className="flex justify-between w-full max-w-xl">
-                <Button
-                  variant="outlined"
-                  onClick={() => dispatch(previousQuestion())}
-                  disabled={currentQuestionIndex === 0}
-                  className="px-6 py-2"
-                >
-                  Previous
-                </Button>
-
-                <Box className="flex gap-3">
+              {/* Navigation and Action Buttons */}
+              <Box className="flex justify-between items-center">
+                <Box className="space-x-2">
                   <Button
-                    variant="contained"
-                    color="info"
-                    onClick={() => {
-                      dispatch(markQuestionForReview(currentQuestion.id));
-                      if (currentQuestionIndex < questions.length - 1) dispatch(nextQuestion());
-                    }}
-                    className="px-6 py-2"
+                    variant="outlined"
+                    onClick={() => dispatch(previousQuestion())}
+                    disabled={currentQuestionIndex === 0}
                   >
-                    {currentQuestionIndex === questions.length - 1 ? "Mark for Review" : "Mark for Review & Next"}
+                    Previous
                   </Button>
-
-                  {currentQuestionIndex !== questions.length - 1 && (
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={() => {
-                        dispatch(nextQuestion());
-                      }}
-                      className="px-6 py-2"
-                    >
-                      Next
-                    </Button>
-                  )}
+                  <Button
+                    variant="outlined"
+                    onClick={() => dispatch(nextQuestion())}
+                    disabled={currentQuestionIndex === questions.length - 1}
+                  >
+                    Next
+                  </Button>
                 </Box>
-              </Box>
 
-              {/* Submit button only on last question */}
-              {currentQuestionIndex === questions.length - 1 && (
-                <Box className="flex flex-col items-center">
+                <Box className="space-x-2">
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={() => dispatch(markQuestionForReview(currentQuestion.id))}
+                  >
+                    Mark for Review
+                  </Button>
                   <Button
                     variant="contained"
-                    color="error"
+                    color="success"
                     onClick={handleSubmit}
-                    className="px-8 py-3 mt-4"
-                    disabled={!allQuestionsAnswered || isSubmitting} // 👈 disabled while submitting
+                    disabled={isSubmitting}
                   >
-                    {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Submit"}
+                    {isSubmitting ? "Submitting..." : "Submit Interview"}
                   </Button>
-
-
-                  {!allQuestionsAnswered && (
-                    <Typography color="error" className="mt-2 text-sm">
-                      You must attempt all questions before submitting.
-                    </Typography>
-                  )}
                 </Box>
-              )}
-            </Box>
-          </CardContent>
-        </Card>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 };
 

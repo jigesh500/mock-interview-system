@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { RootState } from '../store';
+// import { RootState } from '../store';
 
 // Interface for a single question
 export interface Question {

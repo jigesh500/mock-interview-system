@@ -234,49 +234,29 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
       );
     }
 
-    // If the 2nd round interview is completed and has a summary, show View Summary button
-    if (secondRoundStatus === 'COMPLETED' && summaryStatus) {
+    // Show pending or interviewer assignment logic here
+    return <span className="text-slate-400 text-xs italic">Pending</span>;
+  }, []);
+
+  const ReportRenderer = useMemo(() => (props: any) => {
+    const { candidateEmail, summaryStatus, interviewStatus } = props.data;
+    
+    // Show report button if interview is completed and summary exists
+    if (interviewStatus === 'Completed' && summaryStatus) {
       return (
         <button
           className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-          style={{ backgroundColor: '#F58220' }}
+          style={{ backgroundColor: '#28a745' }}
           onClick={() => handleViewSummary(candidateEmail)}
+          title="View Interview Report"
         >
-          View Summary
+          Report
         </button>
       );
     }
-
-    // If an interviewer is assigned (i.e., scheduled), show their name and a change button
-    if (secondRoundInterviewerName) {
-      return (
-        <div className="flex flex-col items-center justify-center gap-1">
-          <span className="text-xs font-semibold text-slate-700">{secondRoundInterviewerName}</span>
-          <button
-            className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-            onClick={() => handleOpenScheduleModal(candidateEmail)}
-          >
-            (Change)
-          </button>
-        </div>
-      );
-    }
-
-    // If first round passed and second round is pending (and not yet scheduled), show Schedule button
-    if (firstRoundStatus === 'PASS' && secondRoundStatus === 'PENDING') {
-      return (
-        <button
-          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-          style={{ backgroundColor: '#56C5D0' }}
-          onClick={() => handleOpenScheduleModal(candidateEmail)}
-        >
-            Assign
-        </button>
-      );
-    }
-
-    return <span className="text-slate-400 text-xs">-</span>;
-  }, [candidates, handleViewSummary, handleOpenScheduleModal]); // Added handleOpenScheduleModal to dependencies
+    
+    return <span className="text-slate-400 text-xs italic">-</span>;
+  }, [handleViewSummary]);
 
   const columnDefs = useMemo(() => [
     { 
@@ -386,6 +366,22 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
       }
     },
     {
+      headerName: 'Report',
+      field: 'report',
+      flex: 0.8,
+      minWidth: 100,
+      cellRenderer: ReportRenderer,
+      cellStyle: {
+        textAlign: 'center',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      },
+      sortable: false,
+      filter: false
+    },
+    {
       headerName: 'Actions',
       flex: 1.2,
       minWidth: 180,
@@ -400,7 +396,7 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
       sortable: false,
       filter: false
     }
-  ], [FirstRoundRenderer, SecondRoundRenderer]);
+  ], [FirstRoundRenderer, SecondRoundRenderer, ReportRenderer]);
 
   const defaultColDef = useMemo(() => ({
     sortable: true,

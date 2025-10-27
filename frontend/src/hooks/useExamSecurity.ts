@@ -1,5 +1,6 @@
 // frontend/src/hooks/useExamSecurity.ts
 import { useEffect, useCallback, useRef } from 'react';
+import toast from 'react-hot-toast';
 
 type ViolationType = 'RIGHT_CLICK' | 'KEYBOARD_SHORTCUT' | 'TAB_SWITCH' | 'WINDOW_RESIZE';
 
@@ -11,7 +12,7 @@ interface UseExamSecurityReturn {
 export const useExamSecurity = (
   onViolation?: (type: ViolationType, message: string) => void,
   sessionId?: string,
-    candidateEmail?: string
+  candidateEmail?: string
 ): UseExamSecurityReturn => {
   const tabSwitchViolations = useRef(0);
   const tabMonitoringActive = useRef(false);
@@ -19,22 +20,19 @@ export const useExamSecurity = (
   const interviewCompleted = useRef(false);
 
   const handleViolation = useCallback((type: ViolationType, message: string) => {
-
-      if (interviewCompleted.current) {
-          console.log('Violation ignored - interview completed:', type, message);
-          return;
-        }
+    if (interviewCompleted.current) {
+      console.log('Violation ignored - interview completed:', type, message);
+      return;
+    }
 
     console.log('Security action blocked:', type, message);
     onViolation?.(type, message);
   }, [onViolation]);
 
-const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
- const deactivateSecurity = useCallback(() => {
+  const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
+  const deactivateSecurity = useCallback(() => {
     tabMonitoringActive.current = false;
     interviewCompleted.current = true;
-
-
   }, []);
 
   useEffect(() => {
@@ -45,7 +43,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const forbidden = [
-            e.key === 'f12',
+        e.key === 'f12',
         e.key === 'PrintScreen',
         (e.ctrlKey && e.shiftKey && e.key === 'I'),
         (e.ctrlKey && e.key === 'u'),
@@ -64,10 +62,10 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
     };
 
     const terminateInterview = async (reason: string, count: number) => {
-        interviewCompleted.current = true;
-          tabMonitoringActive.current = false;
-      alert('❌ INTERVIEW TERMINATED: Due to multiple tab switching violations');
-      
+      interviewCompleted.current = true;
+      tabMonitoringActive.current = false;
+      toast.error('❌ INTERVIEW TERMINATED: Due to multiple tab switching violations');
+
       try {
         await fetch('http://localhost:8081/api/monitoring/log-event', {
           method: 'POST',
@@ -81,13 +79,10 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
             metadata: JSON.stringify({ violationCount: count, reason })
           })
         });
-
-
-
       } catch (err) {
         console.error('Error logging termination:', err);
       }
-      
+
       setTimeout(() => {
         window.location.href = '/violation';
       }, 1500);
@@ -112,36 +107,33 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
     };
 
     const handleVisibilityChange = async () => {
-      if (!tabMonitoringActive.current|| interviewCompleted.current) return;
-      
+      if (!tabMonitoringActive.current || interviewCompleted.current) return;
+
       if (document.hidden && !isTabHidden.current) {
-        // Tab just became hidden - count violation
         isTabHidden.current = true;
         const newCount = tabSwitchViolations.current + 1;
         tabSwitchViolations.current = newCount;
-        
+
         console.log(`Tab switch #${newCount} detected`);
-        
+
         handleViolation('TAB_SWITCH', `Tab switching detected (${newCount})`);
-        
+
         if (newCount === 1) {
-          alert("⚠️ WARNING: Tab switching detected! Please stay on this tab.");
+          toast.error("⚠️ WARNING: Tab switching detected! Please stay on this tab.");
         } else if (newCount === 2) {
-          alert("⚠️ SECOND WARNING: Tab switching detected again!");
+          toast.error("⚠️ SECOND WARNING: Tab switching detected again!");
         } else if (newCount === 3) {
-          alert("🚨 FINAL WARNING: One more tab switch will terminate your interview!");
-        } else if (newCount >3 ) {
+          toast.error("🚨 FINAL WARNING: One more tab switch will terminate your interview!");
+        } else if (newCount > 3) {
           terminateInterview('TAB_SWITCH', newCount);
           return;
         }
       } else if (!document.hidden && isTabHidden.current) {
-        // Tab became visible again
         isTabHidden.current = false;
         console.log('Tab focused - violation count:', tabSwitchViolations.current);
       }
     };
 
-    // Add CSS to prevent text selection
     const style = document.createElement('style');
     style.textContent = `
       * {
@@ -159,12 +151,11 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
     `;
     document.head.appendChild(style);
 
-    // Force fullscreen and start monitoring
     const tabMonitoringTimer = setTimeout(() => {
       tabSwitchViolations.current = 0;
       tabMonitoringActive.current = true;
       isTabHidden.current = false;
-      preventResize(); // Force fullscreen
+      preventResize();
       console.log('Tab switching monitoring activated');
     }, 10000);
 
@@ -185,7 +176,7 @@ const handleVisibilityChangeRef = useRef<(() => void) | null>(null);
       window.removeEventListener('resize', handleResize);
       document.head.removeChild(style);
     };
-  }, [handleViolation,sessionId,candidateEmail]);
+  }, [handleViolation, sessionId, candidateEmail]);
 
   const activateSecurity = useCallback(() => {
     console.log('Exam security activated - silent mode');

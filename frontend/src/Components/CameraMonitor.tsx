@@ -1,8 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as faceapi from 'face-api.js';
-import { useAuth } from '../hooks/useAuth';
-import { useExamSecurity } from '../hooks/useExamSecurity';
 import { Typography, Button } from '@mui/material';
+import toast from 'react-hot-toast';
 
 interface CameraMonitorProps {
   sessionId: string;
@@ -10,13 +9,7 @@ interface CameraMonitorProps {
   onCameraReady?: (granted: boolean) => void;
 }
 
-interface User {
-  email?: string;
-  [key: string]: any;
-}
-
 const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd, onCameraReady }) => {
-  // ✅ ALL variables declared first
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [status, setStatus] = useState<string>("Loading...");
   const [cameraPermission, setCameraPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
@@ -26,14 +19,8 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
   const [noFaceViolations, setNoFaceViolations] = useState<number>(0);
   const [isViolated, setIsViolated] = useState<boolean>(false);
 
-  const { user, isAuthenticated, loading: isLoading } = useAuth() as {
-    user: User | null;
-    isAuthenticated: boolean;
-    loading: boolean;
-  };
-
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
-    if (!isAuthenticated || !user?.email || !sessionId) return;
+    if (!sessionId) return;
 
     try {
       await fetch('http://localhost:8081/api/monitoring/log-event', {
@@ -42,7 +29,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
         credentials: 'include',
         body: JSON.stringify({
           sessionId,
-          candidateEmail: user.email,
+          candidateEmail: 'anonymous@interview.com',
           eventType: type,
           description: message,
           metadata: JSON.stringify({ timestamp: new Date().toISOString() })
@@ -51,24 +38,15 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     } catch (err) {
       console.error('Error logging security violation:', err);
     }
-  }, [isAuthenticated, user?.email, sessionId]);
+  }, [sessionId]);
 
-  const { enterFullscreen, deactivateSecurity } = useExamSecurity(handleSecurityViolation);
-  
-  useEffect(() => {
-    if (onInterviewEnd) {
-      (window as any).deactivateCameraSecurity = deactivateSecurity;
-    }
-  }, [deactivateSecurity, onInterviewEnd]);
-
-  // ✅ Single camera request
   useEffect(() => {
     const requestCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setCameraPermission('granted');
         onCameraReady?.(true);
-        
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadeddata = () => {
@@ -85,7 +63,6 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     requestCamera();
   }, [onCameraReady]);
 
-  // ✅ Load face-api.js models only (no duplicate camera request)
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -102,11 +79,11 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
 
   // Log interview start event
   useEffect(() => {
-    if (isAuthenticated && user?.email && sessionId && !interviewStarted) {
+    if (sessionId && !interviewStarted) {
       const logInterviewStart = async () => {
         const eventData = {
           sessionId,
-          candidateEmail: user.email,
+          candidateEmail: 'anonymous@interview.com',
           eventType: "INTERVIEW_START",
           description: "Interview monitoring started",
           metadata: JSON.stringify({ timestamp: new Date().toISOString() })
@@ -127,11 +104,11 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
 
       logInterviewStart();
     }
-  }, [isAuthenticated, user?.email, sessionId, interviewStarted]);
+  }, [sessionId, interviewStarted]);
 
   // Event-based face detection monitoring
   useEffect(() => {
-    if (!isAuthenticated || isLoading || !user?.email || !sessionId || !interviewStarted) {
+    if (!sessionId || !interviewStarted) {
       return;
     }
 
@@ -154,8 +131,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
 
         const terminateInterview = async (reason: string, count: number) => {
           setIsViolated(true);
-          deactivateSecurity();
-          alert(`❌ INTERVIEW TERMINATED: Due to multiple violations`);
+          toast.error(`❌ INTERVIEW TERMINATED: Due to multiple violations`);
 
           try {
             await fetch('http://localhost:8081/api/monitoring/log-event', {
@@ -164,7 +140,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
               credentials: 'include',
               body: JSON.stringify({
                 sessionId,
-                candidateEmail: user.email,
+                candidateEmail: 'anonymous@interview.com',
                 eventType: 'INTERVIEW_TERMINATED',
                 description: `Interview terminated due to ${reason} violations`,
                 metadata: JSON.stringify({ violationCount: count, reason })
@@ -188,11 +164,11 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
             setMultipleFaceViolations(newCount);
 
             if (newCount === 1) {
-              alert("⚠️ WARNING: Multiple faces detected! Please ensure only you are visible.");
+              toast.error("⚠️ WARNING: Multiple faces detected! Please ensure only you are visible.");
             } else if (newCount === 2) {
-              alert("⚠️ SECOND WARNING: Multiple faces detected again!");
+              toast.error("⚠️ SECOND WARNING: Multiple faces detected again!");
             } else if (newCount === 3) {
-              alert("🚨 FINAL WARNING: One more multiple face violation will terminate your interview!");
+              toast.error("🚨 FINAL WARNING: One more multiple face violation will terminate your interview!");
             } else if (newCount >= 4) {
               terminateInterview('MULTIPLE_FACES', newCount);
               return;
@@ -210,11 +186,11 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
             setNoFaceViolations(newCount);
 
             if (newCount === 1) {
-              alert("⚠️ WARNING: Face not detected! Please position yourself in front of the camera.");
+              toast.error("⚠️ WARNING: Face not detected! Please position yourself in front of the camera.");
             } else if (newCount === 2) {
-              alert("⚠️ SECOND WARNING: Face still not detected! Ensure proper lighting and camera position.");
+              toast.error("⚠️ SECOND WARNING: Face still not detected! Ensure proper lighting and camera position.");
             } else if (newCount === 3) {
-              alert("🚨 FINAL WARNING: One more face detection failure will terminate your interview!");
+              toast.error("🚨 FINAL WARNING: One more face detection failure will terminate your interview!");
             } else if (newCount >= 4) {
               terminateInterview('FACE_NOT_DETECTED', newCount);
               return;
@@ -228,7 +204,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
         if (currentEventType !== lastEventType) {
           const eventData = {
             sessionId,
-            candidateEmail: user.email,
+            candidateEmail: 'anonymous@interview.com',
             eventType: currentEventType,
             description: currentStatus,
             metadata: JSON.stringify({
@@ -258,9 +234,8 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [sessionId, user, isAuthenticated, isLoading, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations, isViolated]);
+  }, [sessionId, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations, isViolated]);
 
-  // ✅ Early return after all hooks
   if (cameraPermission === 'denied') {
     return (
       <div className="text-center p-4 bg-red-100 rounded">
@@ -278,17 +253,12 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     <div className="text-center">
       <video ref={videoRef} autoPlay muted width={200} height={150} className="rounded" />
       <div className={`text-xs mt-1 px-2 py-1 rounded ${
-        status.includes('✅') ? 'bg-green-100 text-green-700' : 
-        status.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' : 
+        status.includes('✅') ? 'bg-green-100 text-green-700' :
+        status.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' :
         'bg-gray-100 text-gray-600'
       }`}>
         {status}
       </div>
-      {!isAuthenticated && (
-        <div className="text-xs text-red-500 mt-1">
-          Please login to enable monitoring
-        </div>
-      )}
     </div>
   );
 };

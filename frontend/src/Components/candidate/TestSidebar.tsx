@@ -3,20 +3,16 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks';
 import { setCurrentQuestionIndex } from '../../redux/reducers/testSlice';
 
 const TestSidebar = () => {
-     const dispatch = useAppDispatch();
-  const { questions, currentQuestionIndex, answers, markedQuestions, answeredQuestions, reviewedQuestions } = useAppSelector((state) => state.test);
+  const dispatch = useAppDispatch();
+  const { questions, currentQuestionIndex, answers, markedForReview, answeredQuestions } = useAppSelector((state) => state.test);
 
   const getQuestionStatus = (questionId: string, index: number) => {
-    const isAnswered = answeredQuestions.includes(questionId);
-    const isMarked = markedQuestions.includes(questionId);
-//     const isVisited = visitedQuestions.includes(questionId);
-    const isReviewed = reviewedQuestions && reviewedQuestions.includes(questionId);
+    const isAnswered = answeredQuestions?.includes(questionId) || false;
+    const isMarked = markedForReview?.includes(questionId) || false;
     const isCurrent = currentQuestionIndex === index;
 
     if (isCurrent) {
       return { color: 'secondary' as const, variant: 'filled' as const, className: 'ring-2 ring-blue-400' };
-    } else if (isReviewed) {
-      return { color: 'warning' as const, variant: 'filled' as const, className: '' }; // Orange for reviewed
     } else if (isAnswered) {
       return { color: 'success' as const, variant: 'filled' as const, className: '' };
     } else if (isMarked) {
@@ -30,11 +26,9 @@ const TestSidebar = () => {
   };
 
   const getStatusCounts = () => {
-    let answered = answeredQuestions.length;
-    let marked = markedQuestions.length;
-    let reviewed = reviewedQuestions ? reviewedQuestions.length : 0;
-//     let notVisited = questions.length - visitedQuestions.length;
-    return { answered, marked, reviewed };
+    let answered = answeredQuestions?.length || 0;
+    let marked = markedForReview?.length || 0;
+    return { answered, marked };
   };
 
   const statusCounts = getStatusCounts();
@@ -69,7 +63,7 @@ const TestSidebar = () => {
 
       {/* Question Grid */}
       <Grid container spacing={1}>
-        {questions.map((question, index) => {
+        {questions?.map((question, index) => {
           const status = getQuestionStatus(question.id, index);
           return (
             <Grid xs={3} key={question.id}>
