@@ -69,58 +69,6 @@ public class TestController {
         return ResponseEntity.ok(response);
     }
 
-    // Test candidate interview info
-//    @GetMapping("/candidate/interview-info")
-//    public ResponseEntity<Map<String, Object>> testInterviewInfo(@RequestParam String candidateEmail) {
-//        InterviewMeeting meeting = meetingRepository.findByCandidateEmailAndActiveTrue(candidateEmail)
-//                .orElse(null);
-//
-//        Map<String, Object> response = new HashMap<>();
-//        if (meeting != null) {
-//            response.put("hasInterview", true);
-//            response.put("meetingId", meeting.getMeetingId());
-//            response.put("meetingUrl", meeting.getMeetingUrl());
-//            response.put("hrEmail", meeting.getHrEmail());
-//        } else {
-//            response.put("hasInterview", false);
-//            response.put("message", "No interview scheduled");
-//        }
-//
-//        return ResponseEntity.ok(response);
-//    }
-
-    // Test candidate join interview
-//    @PostMapping("/candidate/join-interview")
-//    public ResponseEntity<Map<String, Object>> testJoinInterview(@RequestParam String candidateEmail) {
-//        InterviewMeeting meeting = meetingRepository.findByCandidateEmailAndActiveTrue(candidateEmail)
-//                .orElseThrow(() -> new RuntimeException("No active interview found"));
-//
-//        String sessionId = UUID.randomUUID().toString();
-//
-//        InterviewSession session = new InterviewSession();
-//        session.setSessionId(sessionId);
-//        session.setCandidateEmail(candidateEmail);
-//        session.setMeetingId(meeting.getMeetingId());
-//        session.setHrEmail(meeting.getHrEmail());
-//        session.setCompleted(false);
-//
-//        sessionRepository.save(session);
-//
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("sessionId", sessionId);
-//        response.put("teamsUrl", meeting.getMeetingUrl());
-//        response.put("examUrl", "/exam?sessionId=" + sessionId);
-//        response.put("message", "Interview joined successfully");
-//
-//        return ResponseEntity.ok(response);
-//    }
-//
-//    // Get all meetings (for debugging)
-//    @GetMapping("/meetings")
-//    public ResponseEntity<List<InterviewMeeting>> getAllMeetings() {
-//        return ResponseEntity.ok(meetingRepository.findAll());
-//    }
-
     // Get all sessions (for debugging)
     @GetMapping("/sessions")
     public ResponseEntity<List<InterviewSession>> getAllSessions() {

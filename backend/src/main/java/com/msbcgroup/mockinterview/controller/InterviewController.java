@@ -277,32 +277,26 @@ public class InterviewController {
     }
 
 
-    @GetMapping("/start-with-session")
+    @GetMapping("/start-with-session/{sessionId}")
     public ResponseEntity<Map<String, Object>> startWithSession(
-            @RequestParam String sessionId,
-            @AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
-
-        String email = principal.getAttribute("email");
+            @PathVariable String sessionId) throws JsonProcessingException {
 
         // Verify session exists
         InterviewSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
 
-        if (!session.getCandidateEmail().equals(email)) {
-            throw new RuntimeException("Unauthorized access to session");
+        // Prevent re-taking a completed interview
+        if (session.isCompleted()) {
+            // Return a 409 Conflict status, which is more descriptive for the frontend.
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Conflict");
+            errorResponse.put("message", "This interview session has already been completed.");
+            return ResponseEntity.status(409).body(errorResponse);
         }
 
-        // Generate questions (existing logic)
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email)
-                .orElseThrow(() -> new RuntimeException("Profile not found"));
-
-        List<Question> questions = generateQuestionsFromProfile(profile);
-
+        // Retrieve the questions that were generated when the interview was scheduled
         ObjectMapper mapper = new ObjectMapper();
-        String questionsJson = mapper.writeValueAsString(questions);
-
-        session.setQuestionsJson(questionsJson);
-        sessionRepository.save(session);
+        List<Question> questions = mapper.readValue(session.getQuestionsJson(), new TypeReference<List<Question>>() {});
 
         Map<String, Object> response = new HashMap<>();
         response.put("questions", questions);
@@ -323,7 +317,7 @@ public class InterviewController {
         return profile;
     }
 
-    private List<Question> generateQuestionsFromProfile(CandidateProfile profile) {
+    public List<Question> generateQuestionsFromProfile(CandidateProfile profile) {
 
         String randomSeed = UUID.randomUUID().toString().substring(0, 8);
 

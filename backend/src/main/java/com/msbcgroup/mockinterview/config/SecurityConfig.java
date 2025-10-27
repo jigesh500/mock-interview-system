@@ -32,8 +32,11 @@ public class SecurityConfig {
                         .invalidSessionUrl("/oauth2/authorization/auth0") // redirect if session invalid
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/start-interview/**").permitAll()
+                        .requestMatchers("/candidate/portal-info/**").permitAll()
+                        .requestMatchers("/interview/start-with-session/**").permitAll()
                         .requestMatchers("/api/monitoring/**").permitAll()
-                        .requestMatchers("/hr/**", "/interview/**", "/api/auth/**").authenticated()
+                        .requestMatchers("/hr/**", "/interview/**", "/candidate/**", "/api/auth/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

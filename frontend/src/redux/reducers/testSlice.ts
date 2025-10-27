@@ -1,121 +1,128 @@
-import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import axios from "axios";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { RootState } from '../store';
 
+// Interface for a single question
 export interface Question {
-    id:string,
-    type:string,
-    question:string,
-    options?:string[]
+    id: string;
+    type: string;
+    question: string;
+    options?: string[];
 }
 
+// The shape of the state for this slice
 export interface TestState {
-    userId:string,
-    sessionId:string,
-    questions: Question[],
-    currentQuestionIndex: number,
-    isLoading: boolean,
-    error: string | null,
-    markedQuestions:string[],
-
-    answeredQuestions: string[]; // <-- Added
-  isSubmitted: boolean;
-  answers: { [questionId: string]: string | string[] }; 
-  reviewedQuestions: string[]; // <-- Added
+    sessionId: string | null;
+    questions: Question[];
+    currentQuestionIndex: number;
+    isLoading: boolean;
+    error: string | null;
+    answers: { [questionId: string]: string | string[] };
+    // Tracking for the sidebar
+    markedForReview: string[];
+    answeredQuestions: string[];
 }
 
-const initialState:TestState={
-    userId:"",
-    sessionId:"",
-    questions:[],
-    currentQuestionIndex:0,
-    isLoading:false,
-    error:null,
-    markedQuestions:[],
-    answeredQuestions:[], // <-- Added
-    isSubmitted:false,
-    answers:{},
-    reviewedQuestions:[], // <-- Added
-}
+// The initial state when the app loads or when the test is reset
+const initialState: TestState = {
+    sessionId: null,
+    questions: [],
+    currentQuestionIndex: 0,
+    isLoading: false,
+    error: null,
+    answers: {},
+    markedForReview: [],
+    answeredQuestions: [],
+};
 
-export const startTest = createAsyncThunk(
-  'interview/startTest',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axios.get('http://localhost:8081/interview/start', {
-        withCredentials: true,
-      });
-  console.log(response.data)
-      return response.data; // { questions: Question[], userId: string }
-    } catch (err: any) {
-      return rejectWithValue('Failed to start interview');
-    }
-  }
-);
+const testSlice = createSlice({
+    name: 'test',
+    initialState,
+    // Reducers are functions that define how the state can be updated
+    reducers: {
+        // Resets the entire test state to its initial values.
+        // Crucial for when a candidate opens a new exam link.
+        resetTestState: () => {
+            return initialState;
+        },
 
-const testSlice =createSlice({
-name:'test',
-initialState,
-reducers:{
-    setCurrentQuestionIndex:(state,action:PayloadAction<number>)=>{
-        state.currentQuestionIndex=action.payload;
-    },
+        // Sets the questions for the test, received from the API call.
+        setQuestions: (state, action: PayloadAction<Question[]>) => {
+            state.questions = action.payload;
+            state.currentQuestionIndex = 0;
+            state.answers = {}; // Reset answers when new questions are set
+            state.isLoading = false;
+        },
 
-    saveAnswer(state,action:PayloadAction<{questionId:string,answer:string | string[]}>){
-        const prevAnswer = state.answers[action.payload.questionId];
-        state.answers[action.payload.questionId] = action.payload.answer;
-        // If already answered and answer is changed, mark as reviewed
-        if (
-            state.answeredQuestions.includes(action.payload.questionId) &&
-            prevAnswer !== undefined &&
-            prevAnswer !== action.payload.answer &&
-            !state.reviewedQuestions.includes(action.payload.questionId)
-        ) {
-            state.reviewedQuestions.push(action.payload.questionId);
-        }
-    },
-    markQuestionForReview:(state,action:PayloadAction<string>)=>{
-        if (!state.markedQuestions.includes(action.payload)) {
-            state.markedQuestions.push(action.payload);
-        }
-    },
-    unmarkQuestionForReview:(state,action:PayloadAction<string>)=>{
-        state.markedQuestions = state.markedQuestions.filter(id => id !== action.payload);
-    },
-    markQuestionAsAnswered:(state,action:PayloadAction<string>)=>{
-        if (!state.answeredQuestions.includes(action.payload)) {
-            state.answeredQuestions.push(action.payload);
-        }
-        // Remove from markedQuestions if present
-        state.markedQuestions = state.markedQuestions.filter(id => id !== action.payload);
-    },
-    nextQuestion:(state)=>{
-        if (state.currentQuestionIndex < state.questions.length - 1) {
-            state.currentQuestionIndex += 1;
-        }
-    },
-    previousQuestion:(state)=>{
-        if (state.currentQuestionIndex > 0) {
-            state.currentQuestionIndex -= 1;
-        }
-    }
-},
-extraReducers: (builder) => {
-    builder
-      .addCase(startTest.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(startTest.fulfilled, (state, action: PayloadAction<{ questions: Question[]; sessionId: string }>) => {
-        state.isLoading = false;
-        state.questions = action.payload.questions;
-        state.sessionId = action.payload.sessionId;
-      })
-      .addCase(startTest.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-    }
+        // Stores the session ID for the current test.
+        setSessionId: (state, action: PayloadAction<string>) => {
+            state.sessionId = action.payload;
+        },
 
-})
-export const { setCurrentQuestionIndex, saveAnswer, markQuestionForReview, unmarkQuestionForReview, nextQuestion, previousQuestion, markQuestionAsAnswered } = testSlice.actions;
+        // Saves the candidate's answer for a specific question.
+        saveAnswer: (state, action: PayloadAction<{ questionId: string; answer: string | string[] }>) => {
+            const { questionId, answer } = action.payload;
+            state.answers[questionId] = answer;
+
+            // Automatically mark the question as answered when an answer is saved.
+            if (!state.answeredQuestions.includes(questionId)) {
+                state.answeredQuestions.push(questionId);
+            }
+        },
+
+        // Moves to the next question in the list.
+        nextQuestion: (state) => {
+            if (state.currentQuestionIndex < state.questions.length - 1) {
+                state.currentQuestionIndex += 1;
+            }
+        },
+
+        // Moves to the previous question in the list.
+        previousQuestion: (state) => {
+            if (state.currentQuestionIndex > 0) {
+                state.currentQuestionIndex -= 1;
+            }
+        },
+
+        // Jumps directly to a specific question index (for the sidebar).
+        setCurrentQuestionIndex: (state, action: PayloadAction<number>) => {
+            state.currentQuestionIndex = action.payload;
+        },
+
+        // Toggles the "Mark for Review" status for a question.
+        markQuestionForReview: (state, action: PayloadAction<string>) => {
+            const questionId = action.payload;
+            const index = state.markedForReview.indexOf(questionId);
+            if (index > -1) {
+                // If already marked, unmark it
+                state.markedForReview.splice(index, 1);
+            } else {
+                // Otherwise, mark it
+                state.markedForReview.push(questionId);
+            }
+        },
+
+        // Adds a question to the list of answered questions.
+        markQuestionAsAnswered: (state, action: PayloadAction<string>) => {
+            const questionId = action.payload;
+            if (!state.answeredQuestions.includes(questionId)) {
+                state.answeredQuestions.push(questionId);
+            }
+        },
+    },
+});
+
+// Export the actions so they can be used in components
+export const {
+    resetTestState,
+    setQuestions,
+    setSessionId,
+    saveAnswer,
+    nextQuestion,
+    previousQuestion,
+    setCurrentQuestionIndex,
+    markQuestionForReview,
+    markQuestionAsAnswered,
+} = testSlice.actions;
+
+// Export the reducer to be included in the Redux store
 export default testSlice.reducer;

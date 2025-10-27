@@ -8,12 +8,13 @@ import { hrAPI, authAPI } from '../services/api';
 import { clearAuth } from '../redux/reducers/auth/authSlice';
 import { useAppDispatch } from '../redux/hooks';
 import AddCandidateModal from '../Components/hr/AddCandidateModal';
-import CreateMeetingModal from '../Components/hr/CreateMeetingModal';
+ import ScheduleInterviewModal from '../Components/hr/ScheduleInterviewModal';
 import toast, { Toaster } from 'react-hot-toast';
 import ViewCandidateModal from '../Components/hr/ViewCandidateModal';
 import ScheduleSecondRoundModal from '../Components/hr/ScheduleSecondRoundModal';
 import ViewSummaryModal from '../Components/hr/ViewSummaryModal';
 import { useAppSelector } from '../redux/hooks';
+ import { FaCopy } from 'react-icons/fa';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -21,21 +22,22 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 const HRDashboard: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [meetingResult, setMeetingResult] = useState<any>(null);
+
   const [candidateEmail, setCandidateEmail] = useState('');
-  const [meetingId, setMeetingId] = useState('');
+
   const [candidates, setCandidates] = useState<any[]>([]);
   const [gridApi, setGridApi] = useState<any>(null);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
   const [updateCandidateEmail, setUpdateCandidateEmail] = useState<string>('');
-  const [showAssignCandidateModal, setShowAssignCandidateModal] = useState(false);
-  const [showCreateMeetingModal, setShowCreateMeetingModal] = useState(false);
+
+    const [showScheduleInterviewModal, setShowScheduleInterviewModal] = useState(false);
   const [showViewCandidateModal, setShowViewCandidateModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
    const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<any>(null);
    const { questions } = useAppSelector((state) => state.test);
+    const [magicLink, setMagicLink] = useState<string | null>(null);
 
   // Derived counts for dashboard overview
   const { passedCount, failedCount, inProgressCount } = useMemo(() => {
@@ -62,6 +64,10 @@ const HRDashboard: React.FC = () => {
     };
   }, [candidates]);
 
+// Filter candidates available for first-round scheduling
+   const availableForSchedulingCandidates = useMemo(() => {
+     return candidates.filter(c => c.interviewStatus === 'Pending');
+   }, [candidates]);
 
   // Cell renderer components
   const StatusRenderer = (props: any) => {
@@ -88,11 +94,11 @@ const HRDashboard: React.FC = () => {
     );
   };
 
-const refreshGrid = () => {
-  if (gridApi) {
-    gridApi.refreshCells({ force: true });
-  }
-};
+// const refreshGrid = () => {
+//   if (gridApi) {
+//     gridApi.refreshCells({ force: true });
+//   }
+// };
 
 const handleViewSummary = useCallback(async (candidateEmail: string) => {
     try {
@@ -408,16 +414,18 @@ const handleViewSummary = useCallback(async (candidateEmail: string) => {
     try {
       const response = await hrAPI.getCandidates();
       setCandidates(response.data);
-      // Force grid to refresh all cells after data update
-      if (gridApi) {
-        setTimeout(() => {
-          gridApi.refreshCells({ force: true });
-        }, 50);
-      }
+//       // Force grid to refresh all cells after data update
+//       if (gridApi) {
+//         setTimeout(() => {
+//           gridApi.refreshCells({ force: true });
+//         }, 50);
+//       }
     } catch (error) {
       console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
     }
-}, [gridApi]);
+// }, [gridApi]);
+ }, []);
+
 const validateCandidateAction = (candidateEmail: string, interviewStatus: string) => {
   if (interviewStatus === 'Scheduled') {
     toast.error('Interview is scheduled. Please wait for candidate to complete the interview before making a decision.');
@@ -437,7 +445,7 @@ const handleSelectCandidate = async (candidateEmail: string) => {
     if (response.data.success) {
       toast.success(response.data.message);
       await loadCandidates();
-      refreshGrid(); // Refresh the grid to show updated status
+
     } else {
       toast.error(response.data.message);
     }
@@ -461,7 +469,7 @@ const handleRejectCandidate = async (candidateEmail: string) => {
     if (response.data.success) {
       toast.success(response.data.message);
       await loadCandidates();
-      refreshGrid(); // Refresh the grid to show updated status
+
     } else {
       toast.error(response.data.message);
     }
@@ -478,7 +486,7 @@ const handleRejectCandidate = async (candidateEmail: string) => {
       // Set up an interval to refresh the data every 30 seconds
       const intervalId = setInterval(() => {
         loadCandidates();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 30000); // 30000 milliseconds = 30 seconds
 
       // Cleanup function: clear the interval when the component unmounts
       return () => clearInterval(intervalId);
@@ -504,21 +512,7 @@ const handleRejectCandidate = async (candidateEmail: string) => {
     }
   };
 
-  const assignCandidate = async () => {
-    if (!meetingId || !candidateEmail) {
-      alert('Please fill in both Meeting ID and Candidate Email');
-      return;
-    }
 
-    try {
-      const response = await hrAPI.assignCandidate(meetingId, candidateEmail);
-      alert('Candidate assigned successfully!');
-      console.log('Assignment response:', response.data);
-    } catch (error: any) {
-      console.error('Error assigning candidate:', error);
-      alert(`Error: ${error.response?.data?.message || error.message || 'Failed to assign candidate'}`);
-    }
-  };
 
   const uploadUpdatedResume = async (e: any, candidateEmail: string) => {
     const file = e.target.files[0];
@@ -557,6 +551,11 @@ const handleRejectCandidate = async (candidateEmail: string) => {
       alert(`Error: ${error.response?.data?.message || 'Failed to delete candidate'}`);
     }
   };
+ // This function will be called from the CreateMeetingModal after a candidate is assigned
+   const handleCandidateAssigned = (link: string) => {
+     setMagicLink(link); // Set the link to show the modal
+     loadCandidates(); // Refresh the candidate list
+   };
 
   const handleLogout = async () => {
     try {
@@ -596,14 +595,14 @@ const handleRejectCandidate = async (candidateEmail: string) => {
           <div className="p-4">
             <div className="flex gap-4">
               <button
-                onClick={() => setShowCreateMeetingModal(true)}
+                onClick={() => setShowScheduleInterviewModal(true)}
                 className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
                 style={{ backgroundColor: '#56C5D0' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                Create Meeting
+                Schedule Interview
               </button>
               <button
                 onClick={() => setShowAddCandidateModal(true)}
@@ -694,11 +693,12 @@ const handleRejectCandidate = async (candidateEmail: string) => {
         />
       )}
 
-      {showCreateMeetingModal && (
-        <CreateMeetingModal
-          isOpen={showCreateMeetingModal}
-          onClose={() => setShowCreateMeetingModal(false)}
-          candidates={candidates}
+      {showScheduleInterviewModal && (
+               <ScheduleInterviewModal
+                 isOpen={showScheduleInterviewModal}
+                 onClose={() => setShowScheduleInterviewModal(false)}
+          candidates={availableForSchedulingCandidates}
+          onInterviewScheduled={handleCandidateAssigned}
         />
       )}
 
@@ -729,6 +729,42 @@ const handleRejectCandidate = async (candidateEmail: string) => {
           candidateEmail={selectedSummary.candidateEmail}
           interviewStatus={candidates.find(c => c.candidateEmail === selectedSummary.candidateEmail)?.interviewStatus}
         />
+      )}
+
+      {/* Modal to display the generated Magic Link */}
+      {magicLink && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Candidate Dashboard Link</h3>
+              <p className="text-sm text-slate-600 mb-2">Share this secure link with the candidate:</p>
+              <div className="flex items-center gap-2 p-2 bg-slate-100 border border-slate-300 rounded">
+                <input
+                  type="text"
+                  // Construct the full frontend URL for the candidate dashboard
+                  value={`${window.location.origin}/candidate-dashboard/${magicLink.split('/').pop()}`}
+                  readOnly
+                  className="w-full bg-transparent outline-none text-slate-700"
+                />
+                <button
+                  onClick={() => {
+                    // Construct the correct frontend URL to copy
+                    const portalLink = `${window.location.origin}/candidate-dashboard/${magicLink.split('/').pop()}`;
+                    navigator.clipboard.writeText(portalLink);
+                    toast.success('Link copied to clipboard!');
+                  }}
+                  className="p-2 text-slate-500 hover:text-slate-800 transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <FaCopy />
+                </button>
+              </div>
+              <div className="mt-6 text-right">
+                <button onClick={() => setMagicLink(null)} className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

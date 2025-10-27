@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Editor from "@monaco-editor/react";
-import axios from 'axios';
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks';
-import { useAuth } from '../../../hooks/useAuth';
 import { useExamSecurity } from '../../../hooks/useExamSecurity';
+import { useParams } from 'react-router-dom';
+import { interviewAPI } from '../../../services/api';
 import {
   Card,
   CardContent,
@@ -22,7 +22,9 @@ import {
   previousQuestion,
   markQuestionForReview,
   markQuestionAsAnswered,
-  startTest
+  setQuestions,
+  setSessionId as setReduxSessionId,
+  resetTestState
 } from '../../../redux/reducers/testSlice';
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
@@ -31,12 +33,12 @@ import MicrophoneMonitor from '../../../Components/MicrophoneMonitor';
 interface StartTestProps {
   onExamSubmit?: () => void;
 }
-
-const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
+const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   const dispatch = useAppDispatch();
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
-  const { isAuthenticated, authLoading, user } = useAuth();
+  const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
+
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
@@ -45,37 +47,28 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   // Security violation handler
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
-    console.warn('Security violation:', type, message);
-    //alert(`⚠️ Security Alert: ${message}`);
-  }, [])
+    console.warn('Security violation:', type, message); // For debugging
+  }, []);
 
   // Audio violation handler
   const handleAudioViolation = useCallback(async (type: string, message: string) => {
     console.warn('Audio violation:', type, message);
-    
     try {
-      await fetch('http://localhost:8081/api/monitoring/log-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          sessionId,
-          candidateEmail: user?.email,
-          eventType: type,
-          description: message,
-          metadata: JSON.stringify({ timestamp: new Date().toISOString() })
-        })
+      await interviewAPI.logEvent({
+        sessionId,
+        eventType: type,
+        description: message,
+        metadata: JSON.stringify({ timestamp: new Date().toISOString() })
       });
     } catch (err) {
       console.error('Error logging audio violation:', err);
     }
-  }, [sessionId, user?.email]);
+  }, [sessionId]);
 
-  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation,sessionId,user?.email);
+  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
 
   // Submit function
   const handleSubmit = useCallback(async () => {
-    const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim() !== "");
     if (isSubmitting) return; //
 
       setIsSubmitting(true);
@@ -86,60 +79,61 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         answersPayload["answer" + index] = answers[q.id] ?? "";
       });
 
-      const response = await axios.post(
-        'http://localhost:8081/interview/submit-answers',
-        answersPayload,
-        {
-          params: { sessionId: sessionId },
-          withCredentials: true
-        }
-      );
+      const response = await interviewAPI.submitAnswers(sessionId, answersPayload);
 
       if (response.data.status === "success") {
-
           deactivateSecurity();
           (window as any).deactivateCameraSecurity?.();
           try {
-                    await fetch('http://localhost:8081/api/monitoring/log-event', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      credentials: 'include',
-                      body: JSON.stringify({
-                        sessionId,
-                        candidateEmail: user.email,
-                        eventType: 'INTERVIEW_END',
-                        description: 'Interview completed successfully',
-                        metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
-                      })
-                    });
-                    await new Promise(resolve => setTimeout(resolve, 700));
-                  } catch (err) {
-                    console.error('Error logging interview end:', err);
-                  }
+            await interviewAPI.logEvent({
+              sessionId,
+              eventType: 'INTERVIEW_END',
+              description: 'Interview completed successfully',
+              metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+            });
+            await new Promise(resolve => setTimeout(resolve, 700));
+          } catch (err) {
+            console.error('Error logging interview end:', err);
+          }
 
         alert("Interview submitted successfully!");
         if (onExamSubmit) onExamSubmit();
         window.location.href = '/thank-you';
       }
     } catch (error) {
-      console.error("Error submitting interview:", error);
+      console.error("Error submitting interview:", error); // Keep for debugging
       alert("Failed to submit interview. Please try again.");
       setIsSubmitting(false);
     }
-  }, [questions, answers, sessionId, onExamSubmit, user, isSubmitting]);
+  }, [questions, answers, sessionId, onExamSubmit, isSubmitting, deactivateSecurity]);
 
   useEffect(() => {
-    if (isAuthenticated && questions.length === 0) {
-      dispatch(startTest());
+    // Fetch questions when the component mounts with a sessionId from the URL
+    const startInterview = async () => {
+      if (urlSessionId) {
+        try {
+          dispatch(resetTestState()); // Clear any previous test state
+          const response = await interviewAPI.startInterviewWithSession(urlSessionId);
+          dispatch(setQuestions(response.data.questions));
+          dispatch(setReduxSessionId(response.data.sessionId));
+        } catch (error) {
+          console.error("Failed to start interview:", error);
+          alert("Could not start the interview. The link may be invalid or expired.");
+          // Optionally navigate to an error page
+          // navigate('/invalid-link');
+        }
+      }
     }
-  }, [dispatch, questions.length, isAuthenticated]);
+    startInterview();
+  }, [dispatch, urlSessionId]);
 
   // Activate exam security when test starts
   useEffect(() => {
-    if (isAuthenticated && questions.length > 0) {
+    // Activate security as soon as questions are loaded, no auth check needed
+    if (questions.length > 0) {
       activateSecurity();
     }
-  }, [isAuthenticated, questions.length, activateSecurity]);
+  }, [questions.length, activateSecurity]);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -151,23 +145,6 @@ const StartTest: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
-
-  if (authLoading) {
-    return (
-      <Box className="flex justify-center items-center h-64">
-        <CircularProgress />
-        <Typography className="ml-4">Checking authentication...</Typography>
-      </Box>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <Box className="flex justify-center items-center h-64">
-        <Typography className="ml-4">Please log in to start the interview.</Typography>
-      </Box>
-    );
-  }
 
 if (!cameraReady || !micReady) {
     return (
@@ -353,10 +330,13 @@ if (!cameraReady || !micReady) {
                   <Button
                     variant="contained"
                     color="info"
-                    onClick={() => dispatch(markQuestionForReview(currentQuestion.id))}
+                    onClick={() => {
+                      dispatch(markQuestionForReview(currentQuestion.id));
+                      if (currentQuestionIndex < questions.length - 1) dispatch(nextQuestion());
+                    }}
                     className="px-6 py-2"
                   >
-                    {currentQuestionIndex === questions.length - 1 ? "Mark as Review" : "Mark for Review & Next"}
+                    {currentQuestionIndex === questions.length - 1 ? "Mark for Review" : "Mark for Review & Next"}
                   </Button>
 
                   {currentQuestionIndex !== questions.length - 1 && (
@@ -364,7 +344,6 @@ if (!cameraReady || !micReady) {
                       variant="contained"
                       color="success"
                       onClick={() => {
-                        if (selectedAnswer) dispatch(markQuestionAsAnswered(currentQuestion.id));
                         dispatch(nextQuestion());
                       }}
                       className="px-6 py-2"
@@ -404,4 +383,4 @@ if (!cameraReady || !micReady) {
   );
 };
 
-export default StartTest;
+export default TestInterface;

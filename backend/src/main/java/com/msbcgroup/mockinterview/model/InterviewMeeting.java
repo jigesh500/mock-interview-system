@@ -21,6 +21,11 @@ public class InterviewMeeting {
     @Enumerated(EnumType.STRING)
     private MeetingStatus status = MeetingStatus.PENDING;
 
+    @Column(unique = true)
+    private String loginToken;
+
+    private LocalDateTime tokenExpiry;
+
     public enum MeetingStatus {
         PENDING, SCHEDULED, COMPLETED
     }
@@ -53,5 +58,21 @@ public class InterviewMeeting {
 
     public void setStatus(MeetingStatus status) {
         this.status = status;
+    }
+
+    public String getLoginToken() {
+        return loginToken;
+    }
+
+    public void setLoginToken(String loginToken) {
+        this.loginToken = loginToken;
+    }
+
+    public LocalDateTime getTokenExpiry() {
+        return tokenExpiry;
+    }
+
+    public void setTokenExpiry(LocalDateTime tokenExpiry) {
+        this.tokenExpiry = tokenExpiry;
     }
 }

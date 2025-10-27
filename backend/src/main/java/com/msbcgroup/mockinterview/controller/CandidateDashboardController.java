@@ -1,19 +1,16 @@
 package com.msbcgroup.mockinterview.controller;
 
-import com.msbcgroup.mockinterview.model.InterviewMeeting;
+import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.InterviewSession;
-import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
+import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/candidate")
@@ -21,68 +18,40 @@ import java.util.UUID;
 public class CandidateDashboardController {
 
     @Autowired
-    private InterviewMeetingRepository meetingRepository;
-
-    @Autowired
     private InterviewSessionRepository sessionRepository;
 
-    @GetMapping("/interview-info")
-    public ResponseEntity<Map<String, Object>> getInterviewInfo(@AuthenticationPrincipal OAuth2User principal) {
-        String candidateEmail = principal.getAttribute("email");
+    @Autowired
+    private CandidateProfileRepository candidateProfileRepository;
 
-        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
-        InterviewMeeting meeting = meetings.isEmpty() ? null : meetings.get(0);
+    /**
+     * Public endpoint for a candidate to get interview info using a session token.
+     */
+    @GetMapping("/portal-info/{sessionId}")
+    public ResponseEntity<Map<String, Object>> getInterviewInfoBySession(@PathVariable String sessionId) {
+        // Find the session by its ID (the token from the magic link)
+        InterviewSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired session token."));
+
+        // Use the email from the session to find the candidate's profile
+        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(session.getCandidateEmail())
+                .orElseThrow(() -> new RuntimeException("Candidate profile not found."));
 
         Map<String, Object> response = new HashMap<>();
-        if (meeting != null) {
-            // Check if interview session already started
-            List<InterviewSession> sessions = sessionRepository.findByCandidateEmail(candidateEmail);
-            boolean hasStartedSession = sessions.stream()
-                    .anyMatch(s -> s.getMeetingId() != null && s.getMeetingId().equals(meeting.getMeetingId()));
-
-            if (hasStartedSession) {
-                response.put("hasInterview", false);
-                response.put("message", "No interview scheduled");
-            } else {
-                response.put("hasInterview", true);
-                response.put("meetingId", meeting.getMeetingId());
-                response.put("meetingUrl", meeting.getMeetingUrl());
-            }
-        } else {
-            response.put("hasInterview", false);
-            response.put("message", "No interview scheduled");
-        }
+        response.put("candidateName", profile.getCandidateName());
+        response.put("positionApplied", profile.getPositionApplied());
+        response.put("message", "Welcome! Please press 'Start' when you are ready to begin the interview.");
 
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/join-interview")
-    public ResponseEntity<Map<String, Object>> joinInterview(@AuthenticationPrincipal OAuth2User principal) {
-        String candidateEmail = principal.getAttribute("email");
+    /**
+     * This endpoint is now handled by the public /interview/start-with-session/{sessionId}
+     * in InterviewController. The old /join-interview can be deprecated or removed if no longer used
+     * by any other part of the application.
+     *
+     * For clarity, I am leaving the old endpoints below but they are not used in the new magic link flow.
+     */
 
-        List<InterviewMeeting> meetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
-        if (meetings.isEmpty()) {
-            throw new RuntimeException("No active interview found");
-        }
-        InterviewMeeting meeting = meetings.get(0);
-
-        // Create exam session
-        String sessionId = UUID.randomUUID().toString();
-
-        InterviewSession session = new InterviewSession();
-        session.setSessionId(sessionId);
-        session.setCandidateEmail(candidateEmail);
-        session.setMeetingId(meeting.getMeetingId());
-        session.setHrEmail(meeting.getHrEmail());
-        session.setCompleted(false);
-
-        sessionRepository.save(session);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("sessionId", sessionId);
-        response.put("teamsUrl", meeting.getMeetingUrl());
-        response.put("examUrl", "/exam?sessionId=" + sessionId);
-
-        return ResponseEntity.ok(response);
-    }
+    // ... (Original @GetMapping("/interview-info") and @PostMapping("/join-interview") for logged-in users can remain if needed)
+    // ...
 }

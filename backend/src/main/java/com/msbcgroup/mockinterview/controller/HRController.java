@@ -1,11 +1,9 @@
 package com.msbcgroup.mockinterview.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.msbcgroup.mockinterview.model.*;
-import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
-import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
-import com.msbcgroup.mockinterview.repository.InterviewResultRepository;
-import com.msbcgroup.mockinterview.repository.InterviewSummaryRepository;
+import com.msbcgroup.mockinterview.repository.*;
 import com.msbcgroup.mockinterview.service.FileProcessingService;
 import com.msbcgroup.mockinterview.service.ResumeParsingService;
 import jakarta.servlet.http.Cookie;
@@ -45,6 +43,8 @@ public class HRController {
     @Autowired
     private FileProcessingService fileProcessingService;
 
+    @Autowired
+    private InterviewSessionRepository sessionRepository;
 
     @Autowired
     private InterviewResultRepository interviewResultRepository;
@@ -52,6 +52,8 @@ public class HRController {
     @Autowired
     private InterviewSummaryRepository interviewSummaryRepository;
 
+    @Autowired
+    private InterviewController interviewController;
 
     @GetMapping("/dashboard")
     public ResponseEntity<List<Map<String, Object>>> hrDashboard() {
@@ -357,25 +359,37 @@ public class HRController {
     }
 
     @PostMapping("/assign-candidate")
-    public ResponseEntity<Map<String, String>> assignCandidate(
+    public ResponseEntity<Map<String, Object>> assignCandidate(
             @RequestParam String meetingId,
             @RequestParam String candidateEmail) {
 
         // Deactivate any existing active meetings for this candidate
         List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
-        existingMeetings.forEach(meeting -> meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED));
+        existingMeetings.forEach(meeting -> {
+            meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED);
+            meeting.setLoginToken(null); // Invalidate old tokens
+        });
         meetingRepository.saveAll(existingMeetings);
 
         InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
                 .orElseThrow(() -> new RuntimeException("Meeting not found"));
 
+        // Generate a secure, single-use token
+        String token = UUID.randomUUID().toString();
+        meeting.setLoginToken(token);
+        meeting.setTokenExpiry(LocalDateTime.now().plusHours(48)); // Token is valid for 48 hours
+
         meeting.setCandidateEmail(candidateEmail);
         meeting.setStatus(InterviewMeeting.MeetingStatus.SCHEDULED);
         meetingRepository.save(meeting);
 
-        Map<String, String> response = new HashMap<>();
+        // Construct the magic link for the frontend
+        String magicLink = "http://localhost:8081/api/auth/start-interview/" + token;
+
+        Map<String, Object> response = new HashMap<>();
         response.put("status", "assigned");
-        response.put("message", "Candidate assigned to meeting");
+        response.put("message", "Candidate assigned. Share this link with them.");
+        response.put("magicLink", magicLink);
 
         return ResponseEntity.ok(response);
     }
@@ -559,6 +573,47 @@ public class HRController {
             Map<String, String> response = new HashMap<>();
             response.put("error", "Failed to delete candidate: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+
+
+    @PostMapping("/schedule-interview")
+    public ResponseEntity<Map<String, Object>> scheduleInterview(@RequestParam String candidateEmail) {
+        try {
+            // 1. Find the candidate's profile
+            CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(candidateEmail)
+                    .orElseThrow(() -> new RuntimeException("Candidate profile not found for email: " + candidateEmail));
+
+            // 2. Generate questions using the logic from InterviewController
+            List<Question> questions = interviewController.generateQuestionsFromProfile(profile);
+
+            // 3. Convert questions to JSON string
+            ObjectMapper mapper = new ObjectMapper();
+            String questionsJson = mapper.writeValueAsString(questions);
+
+
+            // 4. Create and save the complete InterviewSession
+            InterviewSession session = new InterviewSession();
+            String sessionId = UUID.randomUUID().toString();
+            session.setSessionId(sessionId);
+            session.setCandidateEmail(candidateEmail);
+            session.setQuestionsJson(questionsJson); // Save the generated questions
+            session.setCompleted(false);
+            sessionRepository.save(session);
+
+            // 5. Return the sessionId to the frontend to build the magic link
+            String magicLink = "http://localhost:8081/api/auth/start-interview/" + sessionId;
+            Map<String, Object> response = new HashMap<>();
+            response.put("magicLink", magicLink);
+            response.put("message", "Interview scheduled successfully.");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Failed to schedule interview: " + e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
         }
     }
 }

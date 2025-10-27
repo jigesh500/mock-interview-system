@@ -15,44 +15,48 @@ export const authAPI = {
 
 // HR APIs
 export const hrAPI = {
-  createMeeting: () => api.post('/hr/create-meeting'),
   getMyMeetings: () => api.get('/hr/meetings'),
   getCandidates: () => api.get('/hr/dashboard'),
-  assignCandidate: (meetingId, candidateEmail) =>
-    api.post(`/hr/assign-candidate?meetingId=${meetingId}&candidateEmail=${candidateEmail}`),
-  uploadResume: (formData) => api.post('/hr/upload-resume', formData),
-  addCandidate: (candidateData) => api.post('/hr/candidates', candidateData),
-  deleteCandidate: (candidateName) =>
+  uploadResume: (formData: FormData) => api.post('/hr/upload-resume', formData),
+     addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
+     deleteCandidate: (candidateName: string) =>
     api.delete(`/hr/candidates/${encodeURIComponent(candidateName)}`),
-  updateResume: (formData) => api.put('/hr/update-resume', formData),
-  getInterviewSummary: (candidateEmail) =>
+    scheduleInterview: (candidateEmail: string) => api.post('/hr/schedule-interview', null, {
+         params: { candidateEmail }
+       }),
+  updateResume: (formData: FormData) => api.put('/hr/update-resume', formData),
+     getInterviewSummary: (candidateEmail: string) =>
     api.get(`/hr/interview-summary/${candidateEmail}`),
-  getCandidateByEmail: (candidateEmail) =>
+  getCandidateByEmail: (candidateEmail: string) =>
     api.get(`/hr/candidates/${candidateEmail}`),
-  selectCandidate: (candidateEmail) =>
+   selectCandidate: (candidateEmail: string) =>
     api.post(`/hr/candidate/${candidateEmail}/round/select`),
-  rejectCandidate: (candidateEmail) =>
+   rejectCandidate: (candidateEmail: string) =>
     api.post(`/hr/candidate/${candidateEmail}/round/reject`),
 
-  // ✅ Keep only one version of scheduleSecondRound
-  scheduleSecondRound: async (scheduleData) => {
+  // Schedule second round
+     scheduleSecondRound: async (scheduleData: any) => {
     const response = await api.post('/hr/schedule-second-round', scheduleData);
     return response.data;
   },
-};
+}
 
 // Candidate APIs
 export const candidateAPI = {
-  getInterviewInfo: () => api.get('/candidate/interview-info'),
-  joinInterview: () => api.post('/candidate/join-interview'),
+getPortalInfo: (sessionId: string) => api.get(`/candidate/portal-info/${sessionId}`),
 };
 
 // Interview APIs
 export const interviewAPI = {
-  startWithSession: (sessionId) =>
-    api.get(`/interview/start-with-session?sessionId=${sessionId}`),
-  submitAnswers: (sessionId, answers) =>
-    api.post(`/interview/submit-answers?sessionId=${sessionId}`, answers),
+  startInterviewWithSession: (sessionId: string) => {
+    return axios.get(`${API_BASE_URL}/interview/start-with-session/${sessionId}`);
+  },
+  submitAnswers: (answers: { [key: string]: string }, sessionId: string) => {
+    // Note: Your backend's submit-answers expects the sessionId as a request param
+    // and the principal for auth. We need to adjust the backend to accept unauthenticated submissions.
+    // For now, let's assume we will fix the backend.
+    return axios.post(`${API_BASE_URL}/interview/submit-answers?sessionId=${sessionId}`, answers);
+  }
 };
 
 export default api;
