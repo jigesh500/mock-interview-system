@@ -37,6 +37,13 @@ const HRDashboard: React.FC = () => {
   const [selectedSummary, setSelectedSummary] = useState<any>(null);
   const { questions } = useAppSelector((state) => state.test);
   const [magicLink, setMagicLink] = useState<string | null>(null);
+  const [summaryTimes, setSummaryTimes] = useState<{[key: string]: string}>({});
+  // NEW: State for the report options modal
+  const [showReportOptionsModal, setShowReportOptionsModal] = useState(false);
+  const [reportOptionsCandidate, setReportOptionsCandidate] = useState<string>('');
+  // NEW: State for the view report modal
+  const [showViewReportModal, setShowViewReportModal] = useState(false);
+  const [viewReportData, setViewReportData] = useState<any>(null);
 
   // Derived counts for dashboard overview
   const { passedCount, failedCount, inProgressCount } = useMemo(() => {
@@ -96,12 +103,37 @@ const HRDashboard: React.FC = () => {
       if (response.data) {
         setSelectedSummary({ ...response.data, candidateEmail });
         setShowSummaryModal(true);
+
+        // Store the summary time if available
+        if (response.data.summaryTime) {
+          setSummaryTimes(prev => ({
+            ...prev,
+            [candidateEmail]: response.data.summaryTime
+          }));
+        }
       } else {
         toast.error('No summary data found');
       }
     } catch (error: any) {
       console.error('Operation failed:', error.response?.status || 'Unknown error');
       toast.error('No interview summary found');
+    }
+  }, []);
+
+  // NEW: Function to view report without select/reject options
+  const handleViewReport = useCallback(async (candidateEmail: string, round: 'first' | 'second' = 'first') => {
+    try {
+      const response = await hrAPI.getInterviewSummary(candidateEmail, round);
+      if (response.data) {
+        setViewReportData({ ...response.data, candidateEmail, round });
+        setShowViewReportModal(true);
+        setShowReportOptionsModal(false);
+      } else {
+        toast.error(`No ${round} round report data found`);
+      }
+    } catch (error: any) {
+      console.error('Operation failed:', error.response?.status || 'Unknown error');
+      toast.error(`No ${round} round interview report found`);
     }
   }, []);
 
@@ -245,24 +277,37 @@ const HRDashboard: React.FC = () => {
     return <span className="text-slate-400 text-xs italic">Pending</span>;
   }, [handleOpenScheduleModal]); // Dependency on the callback
 
+  // UPDATED: ReportRenderer with new functionality to open report options modal
   const ReportRenderer = useMemo(() => (props: any) => {
-    const { candidateEmail, summaryStatus, interviewStatus } = props.data;
+    const { candidateEmail, summaryStatus, interviewStatus, firstRoundStatus, secondRoundStatus } = props.data;
+    const summaryTime = summaryTimes[candidateEmail];
 
     if (interviewStatus === 'Completed' && summaryStatus) {
       return (
-        <button
-          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-          style={{ backgroundColor: '#28a745' }}
-          onClick={() => handleViewSummary(candidateEmail)}
-          title="View Interview Report"
-        >
-          Report
-        </button>
+        <div className="flex flex-col items-center gap-1">
+          <div className="text-xs font-medium text-slate-600">First Round</div>
+          {summaryTime && (
+            <div className="text-xs text-slate-500">
+              {new Date(summaryTime).toLocaleString()}
+            </div>
+          )}
+          <button
+            className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+            style={{ backgroundColor: '#28a745' }}
+            onClick={() => {
+              setReportOptionsCandidate(candidateEmail);
+              setShowReportOptionsModal(true);
+            }}
+            title="View Interview Reports"
+          >
+            Report
+          </button>
+        </div>
       );
     }
 
     return <span className="text-slate-400 text-xs italic">-</span>;
-  }, [handleViewSummary]);
+  }, [summaryTimes]);
 
   const columnDefs = useMemo(() => [
     {
@@ -374,8 +419,8 @@ const HRDashboard: React.FC = () => {
     {
       headerName: 'Report',
       field: 'report',
-      flex: 0.8,
-      minWidth: 100,
+      flex: 1.2,
+      minWidth: 150,
       cellRenderer: ReportRenderer,
       cellStyle: {
         textAlign: 'center',
@@ -416,6 +461,25 @@ const HRDashboard: React.FC = () => {
     try {
       const response = await hrAPI.getCandidates();
       setCandidates(response.data);
+
+      // Load summary times for candidates with completed interviews
+      const completedCandidates = response.data.filter(
+        c => c.interviewStatus === 'Completed' && c.summaryStatus
+      );
+
+      for (const candidate of completedCandidates) {
+        try {
+          const summaryResponse = await hrAPI.getInterviewSummary(candidate.candidateEmail);
+          if (summaryResponse.data && summaryResponse.data.summaryTime) {
+            setSummaryTimes(prev => ({
+              ...prev,
+              [candidate.candidateEmail]: summaryResponse.data.summaryTime
+            }));
+          }
+        } catch (error) {
+          console.error(`Failed to load summary time for ${candidate.candidateEmail}`);
+        }
+      }
     } catch (error) {
       console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -711,6 +775,149 @@ const HRDashboard: React.FC = () => {
           candidateEmail={selectedSummary.candidateEmail}
           interviewStatus={candidates.find(c => c.candidateEmail === selectedSummary.candidateEmail)?.interviewStatus}
         />
+      )}
+
+      {/* NEW: Report Options Modal */}
+      {showReportOptionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 text-center">View Candidate Reports</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                  <span className="font-medium text-slate-700">First Round Report</span>
+                  <button
+                    className="px-4 py-2 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+                    style={{ backgroundColor: '#56C5D0' }}
+                    onClick={() => handleViewReport(reportOptionsCandidate, 'first')}
+                  >
+                    View
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+                  <span className="font-medium text-slate-700">Second Round Report</span>
+                  <button
+                    className="px-4 py-2 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+                    style={{ backgroundColor: '#56C5D0' }}
+                    onClick={() => handleViewReport(reportOptionsCandidate, 'second')}
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => setShowReportOptionsModal(false)}
+                  className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: View Report Modal (without select/reject options) */}
+      {showViewReportModal && viewReportData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-slate-800">
+                  {viewReportData.round === 'first' ? 'First' : 'Second'} Round Interview Report
+                </h3>
+                <button
+                  onClick={() => setShowViewReportModal(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="space-y-6">
+                {/* Candidate Information */}
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-slate-800 mb-2">Candidate Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-slate-600">Email:</span>
+                      <span className="ml-2 text-slate-800">{viewReportData.candidateEmail}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-slate-600">Interview Date:</span>
+                      <span className="ml-2 text-slate-800">
+                        {viewReportData.interviewDate ? new Date(viewReportData.interviewDate).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Questions and Answers */}
+                <div>
+                  <h4 className="font-semibold text-slate-800 mb-4">Interview Questions & Answers</h4>
+                  <div className="space-y-4">
+                    {viewReportData.questions?.map((q: any, index: number) => (
+                      <div key={index} className="border border-slate-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h5 className="font-medium text-slate-800">Q{index + 1}: {q.question}</h5>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            q.correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {q.correct ? 'Correct' : 'Incorrect'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600">
+                          <span className="font-medium">Answer:</span> {q.answer}
+                        </p>
+                        {q.feedback && (
+                          <p className="text-sm text-slate-500 mt-2">
+                            <span className="font-medium">Feedback:</span> {q.feedback}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Overall Summary */}
+                {viewReportData.summary && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-2">Overall Summary</h4>
+                    <p className="text-sm text-slate-700">{viewReportData.summary}</p>
+                  </div>
+                )}
+
+                {/* Score Information */}
+                {viewReportData.score !== undefined && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-slate-800 mb-2">Performance Score</h4>
+                    <div className="flex items-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {viewReportData.score}%
+                      </div>
+                      <div className="ml-4 text-sm text-slate-600">
+                        <div>Correct Answers: {viewReportData.correctAnswers || 0}</div>
+                        <div>Total Questions: {viewReportData.totalQuestions || 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setShowViewReportModal(false)}
+                className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal to display the generated Magic Link */}
