@@ -50,7 +50,7 @@ export const interviewAPI = {
     return api.get(`/interview/start-with-session/${sessionId}`);
   },
   submitAnswers: (answers: { [key: string]: string }, sessionId: string) => {
-    return api.post(`/interview/submit-answers?sessionId=${sessionId}`, answers);
+    return api.post(`/interview/submit-answers`, {sessionId, answers});
   },
   logEvent: (eventData: any) => {
     return api.post(`/api/monitoring/log-event`, eventData);

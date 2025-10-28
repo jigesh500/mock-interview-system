@@ -126,6 +126,7 @@ clearAuth(state) {
         state.loading = false;
         state.error = action.payload as string;
         state.isAuthenticated = false;
+        state.redirectUrl ='/auth/login'
         state.user = null;
       })
       // Logout

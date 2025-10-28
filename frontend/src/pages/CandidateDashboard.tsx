@@ -15,7 +15,8 @@ const CandidateDashboard: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+
 
   // State for the new magic link flow
   const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
@@ -76,7 +77,7 @@ const CandidateDashboard: React.FC = () => {
 
   const startExam = () => {
     if (sessionId) {
-      const examUrl = `${window.location.origin}/interview/start?sessionId=${sessionId}`;
+      const examUrl = `${window.location.origin}/interview/start-with-session/?sessionId=${sessionId}`;
       window.open(examUrl, '_blank', 'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
       setTimeout(() => {
         loadInterviewInfo();

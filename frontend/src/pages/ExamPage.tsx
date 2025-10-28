@@ -16,6 +16,10 @@ interface Question {
 const ExamPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+
+    console.log(user)
+
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});

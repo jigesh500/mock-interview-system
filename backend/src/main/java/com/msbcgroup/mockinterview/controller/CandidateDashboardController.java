@@ -26,7 +26,7 @@ public class CandidateDashboardController {
     /**
      * Public endpoint for a candidate to get interview info using a session token.
      */
-    @GetMapping("/portal-info/{sessionId}")
+        @GetMapping("/portal-info/{sessionId}")
     public ResponseEntity<Map<String, Object>> getInterviewInfoBySession(@PathVariable String sessionId) {
         // Find the session by its ID (the token from the magic link)
         InterviewSession session = sessionRepository.findBySessionId(sessionId)
@@ -52,6 +52,4 @@ public class CandidateDashboardController {
      * For clarity, I am leaving the old endpoints below but they are not used in the new magic link flow.
      */
 
-    // ... (Original @GetMapping("/interview-info") and @PostMapping("/join-interview") for logged-in users can remain if needed)
-    // ...
 }

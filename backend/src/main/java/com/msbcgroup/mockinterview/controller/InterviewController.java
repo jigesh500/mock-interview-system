@@ -44,42 +44,42 @@ public class InterviewController {
         this.chatClient = chatClient.build();
     }
 
-    @GetMapping("/start")
-    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
-
-        if (principal == null) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "User not authenticated");
-            return ResponseEntity.status(401).body(errorResponse);
-        }
-
-        String email = principal.getAttribute("email");
-
-
-        String sessionId = UUID.randomUUID().toString();
-
-
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email)
-                .orElseThrow(() -> new RuntimeException("CandidateProfile not found for email: " + email));
-
-        List<Question> questions = generateQuestionsFromProfile(profile);
-        // Store complete questions as JSON
-        ObjectMapper mapper = new ObjectMapper();
-        String questionsJson = mapper.writeValueAsString(questions);
-
-        InterviewSession session = new InterviewSession();
-        session.setSessionId(sessionId);
-        session.setCandidateEmail(email);
-        session.setQuestionsJson(questionsJson);
-        session.setCompleted(false);
-        sessionRepository.save(session);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("questions", questions);
-        response.put("sessionId", sessionId); // Use sessionId instead of userId
-
-        return ResponseEntity.ok(response);
-    }
+//    @GetMapping("/start")
+//    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
+//
+//        if (principal == null) {
+//            Map<String, Object> errorResponse = new HashMap<>();
+//            errorResponse.put("error", "User not authenticated");
+//            return ResponseEntity.status(401).body(errorResponse);
+//        }
+//
+//        String email = principal.getAttribute("email");
+//
+//
+//        String sessionId = UUID.randomUUID().toString();
+//
+//
+//        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email)
+//                .orElseThrow(() -> new RuntimeException("CandidateProfile not found for email: " + email));
+//
+//        List<Question> questions = generateQuestionsFromProfile(profile);
+//        // Store complete questions as JSON
+//        ObjectMapper mapper = new ObjectMapper();
+//        String questionsJson = mapper.writeValueAsString(questions);
+//
+//        InterviewSession session = new InterviewSession();
+//        session.setSessionId(sessionId);
+//        session.setCandidateEmail(email);
+//        session.setQuestionsJson(questionsJson);
+//        session.setCompleted(false);
+//        sessionRepository.save(session);
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("questions", questions);
+//        response.put("sessionId", sessionId); // Use sessionId instead of userId
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     @PostMapping("/submit-answers")
     public ResponseEntity<Map<String, Object>> submitAnswers(
@@ -306,17 +306,6 @@ public class InterviewController {
         return ResponseEntity.ok(response);
     }
 
-    private CandidateProfile createSampleProfile(String email) {
-        CandidateProfile profile = new CandidateProfile();
-        profile.setCandidateEmail(email);
-        profile.setCandidateName("smeet patel");
-        profile.setPositionApplied("Python Developer");
-        profile.setExperienceYears(1);
-        profile.setSkills("Python, Django, Flask, REST APIs, SQL, Git");
-        profile.setDescription("Passionate Python developer with 1 year of experience in building web applications using Django and Flask. Skilled in designing RESTful APIs and working with SQL databases. Familiar with version control using Git.");
-        return profile;
-    }
-
     public List<Question> generateQuestionsFromProfile(CandidateProfile profile) {
 
         String randomSeed = UUID.randomUUID().toString().substring(0, 8);
@@ -381,7 +370,14 @@ public class InterviewController {
                 .call()
                 .content();
 
-        return parseQuestions(response);
+        try {
+            return parseQuestions(response);
+        } catch (Exception e) {
+            // Log the error and re-throw a more specific exception
+            // This prevents a parsing error from being silent.
+            System.err.println("Failed to parse questions from AI response: " + e.getMessage());
+            throw new RuntimeException("Error generating interview questions from AI service.", e);
+        }
 
     }
 

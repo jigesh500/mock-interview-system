@@ -17,7 +17,6 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
   const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
   const [multipleFaceViolations, setMultipleFaceViolations] = useState<number>(0);
   const [noFaceViolations, setNoFaceViolations] = useState<number>(0);
-  const [isViolated, setIsViolated] = useState<boolean>(false);
 
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     if (!sessionId) return;
@@ -129,37 +128,11 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
         let currentEventType: string;
         let currentStatus: string;
 
-        const terminateInterview = async (reason: string, count: number) => {
-          setIsViolated(true);
-          toast.error(`❌ INTERVIEW TERMINATED: Due to multiple violations`);
-
-          try {
-            await fetch('http://localhost:8081/api/monitoring/log-event', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                sessionId,
-                candidateEmail: 'anonymous@interview.com',
-                eventType: 'INTERVIEW_TERMINATED',
-                description: `Interview terminated due to ${reason} violations`,
-                metadata: JSON.stringify({ violationCount: count, reason })
-              })
-            });
-          } catch (err) {
-            console.error('Error logging termination:', err);
-          }
-
-          setTimeout(() => {
-            window.location.href = '/violation';
-          }, 2000);
-        };
-
         if (multipleDetected) {
           currentEventType = "MULTIPLE_FACES";
           currentStatus = "⚠️ Multiple Faces Detected";
 
-          if (lastEventType !== "MULTIPLE_FACES" && !isViolated) {
+          if (lastEventType !== "MULTIPLE_FACES") {
             const newCount = multipleFaceViolations + 1;
             setMultipleFaceViolations(newCount);
 
@@ -168,20 +141,25 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
             } else if (newCount === 2) {
               toast.error("⚠️ SECOND WARNING: Multiple faces detected again!");
             } else if (newCount === 3) {
-              toast.error("🚨 FINAL WARNING: One more multiple face violation will terminate your interview!");
-            } else if (newCount >= 4) {
-              terminateInterview('MULTIPLE_FACES', newCount);
-              return;
+              toast.error("🚨 FINAL WARNING: Please ensure only you are visible in the camera!");
+            } else if (newCount > 3) {
+              // MODIFIED: Just show a toast for subsequent violations, do not terminate
+              toast.error(`⚠️ Multiple face violation #${newCount}. Please ensure only you are visible.`);
             }
           }
         } else if (faceDetected) {
           currentEventType = "FACE_DETECTED";
           currentStatus = "✅ Monitoring Active";
+          // Reset violation counts if face is detected correctly
+          if (lastEventType !== "FACE_DETECTED") {
+            setMultipleFaceViolations(0);
+            setNoFaceViolations(0);
+          }
         } else {
           currentEventType = "FACE_NOT_DETECTED";
           currentStatus = "⚠️ Face Not Detected";
 
-          if (lastEventType !== "FACE_NOT_DETECTED" && !isViolated) {
+          if (lastEventType !== "FACE_NOT_DETECTED") {
             const newCount = noFaceViolations + 1;
             setNoFaceViolations(newCount);
 
@@ -190,10 +168,10 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
             } else if (newCount === 2) {
               toast.error("⚠️ SECOND WARNING: Face still not detected! Ensure proper lighting and camera position.");
             } else if (newCount === 3) {
-              toast.error("🚨 FINAL WARNING: One more face detection failure will terminate your interview!");
-            } else if (newCount >= 4) {
-              terminateInterview('FACE_NOT_DETECTED', newCount);
-              return;
+              toast.error("🚨 FINAL WARNING: Please ensure your face is visible in the camera!");
+            } else if (newCount > 3) {
+              // MODIFIED: Just show a toast for subsequent violations, do not terminate
+              toast.error(`⚠️ Face detection violation #${newCount}. Please ensure your face is visible.`);
             }
           }
         }
@@ -234,7 +212,7 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [sessionId, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations, isViolated]);
+  }, [sessionId, interviewStarted, lastEventType, multipleFaceViolations, noFaceViolations]);
 
   if (cameraPermission === 'denied') {
     return (

@@ -22,7 +22,7 @@ const App = () => {
 
         {/* Temporarily remove ProtectedRoute wrapper */}
         <Route path="/hr/dashboard" element={<HRDashboard />} />
-        <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
+        <Route path="/candidate/portal-info/:sessionId" element={<CandidateDashboard />} />
         <Route path="/interview/start" element={<TestInterface/>} />
         <Route path="/thank-you" element={<ThankYou />} />
         <Route path="/logout" element={<ThankYou2 />} />

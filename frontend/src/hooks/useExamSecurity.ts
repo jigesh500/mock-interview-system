@@ -61,32 +61,8 @@ export const useExamSecurity = (
       }
     };
 
-    const terminateInterview = async (reason: string, count: number) => {
-      interviewCompleted.current = true;
-      tabMonitoringActive.current = false;
-      toast.error('❌ INTERVIEW TERMINATED: Due to multiple tab switching violations');
-
-      try {
-        await fetch('http://localhost:8081/api/monitoring/log-event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            sessionId: sessionId,
-            candidateEmail: candidateEmail,
-            eventType: 'INTERVIEW_TERMINATED',
-            description: 'Interview terminated due to tab switching violations',
-            metadata: JSON.stringify({ violationCount: count, reason })
-          })
-        });
-      } catch (err) {
-        console.error('Error logging termination:', err);
-      }
-
-      setTimeout(() => {
-        window.location.href = '/violation';
-      }, 1500);
-    };
+    // The terminateInterview function has been removed.
+    // const terminateInterview = async (reason: string, count: number) => { ... };
 
     const handleSelectStart = (e: Event) => {
       e.preventDefault();
@@ -123,10 +99,10 @@ export const useExamSecurity = (
         } else if (newCount === 2) {
           toast.error("⚠️ SECOND WARNING: Tab switching detected again!");
         } else if (newCount === 3) {
-          toast.error("🚨 FINAL WARNING: One more tab switch will terminate your interview!");
+          toast.error("🚨 FINAL WARNING: Please avoid tab switching during the interview!");
         } else if (newCount > 3) {
-          terminateInterview('TAB_SWITCH', newCount);
-          return;
+          // MODIFIED: Just show a toast for subsequent violations, do not terminate
+          toast.error(`⚠️ Tab switching violation #${newCount}. Please stay on this tab.`);
         }
       } else if (!document.hidden && isTabHidden.current) {
         isTabHidden.current = false;

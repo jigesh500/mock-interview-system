@@ -126,7 +126,7 @@ public class AuthController {
 
         // 3. SUCCESS: We found the meeting. Now we can get the candidate's email.
         String candidateEmail = meeting.getCandidateEmail();
-        String meetingId = meeting.getMeetingId();
+        String meetingUrl = meeting.getMeetingUrl();
 
         // 4. Invalidate the token to make it single-use (important for security)
         meeting.setLoginToken(null);
@@ -136,9 +136,8 @@ public class AuthController {
         // 5. Redirect the user to a special frontend page with the candidate's details in the URL.
         // This is safe because it's a one-time redirect after successful authentication.
         String frontendRedirectUrl = String.format(
-                "http://localhost:5173/interview-login?email=%s&meetingId=%s",
-                candidateEmail, meetingId);
-
+                "http://localhost:5173/candidate/portal-info/%s",
+                token);
         httpResponse.sendRedirect(frontendRedirectUrl);
     }
 

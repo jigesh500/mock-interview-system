@@ -19,6 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -358,41 +359,41 @@ public class HRController {
         }
     }
 
-    @PostMapping("/assign-candidate")
-    public ResponseEntity<Map<String, Object>> assignCandidate(
-            @RequestParam String meetingId,
-            @RequestParam String candidateEmail) {
-
-        // Deactivate any existing active meetings for this candidate
-        List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
-        existingMeetings.forEach(meeting -> {
-            meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED);
-            meeting.setLoginToken(null); // Invalidate old tokens
-        });
-        meetingRepository.saveAll(existingMeetings);
-
-        InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
-                .orElseThrow(() -> new RuntimeException("Meeting not found"));
-
-        // Generate a secure, single-use token
-        String token = UUID.randomUUID().toString();
-        meeting.setLoginToken(token);
-        meeting.setTokenExpiry(LocalDateTime.now().plusHours(48)); // Token is valid for 48 hours
-
-        meeting.setCandidateEmail(candidateEmail);
-        meeting.setStatus(InterviewMeeting.MeetingStatus.SCHEDULED);
-        meetingRepository.save(meeting);
-
-        // Construct the magic link for the frontend
-        String magicLink = "http://localhost:8081/api/auth/start-interview/" + token;
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", "assigned");
-        response.put("message", "Candidate assigned. Share this link with them.");
-        response.put("magicLink", magicLink);
-
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping("/assign-candidate")
+//    public ResponseEntity<Map<String, Object>> assignCandidate(
+//            @RequestParam String meetingId,
+//            @RequestParam String candidateEmail) {
+//
+//        // Deactivate any existing active meetings for this candidate
+//        List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndStatus(candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
+//        existingMeetings.forEach(meeting -> {
+//            meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED);
+//            meeting.setLoginToken(null); // Invalidate old tokens
+//        });
+//        meetingRepository.saveAll(existingMeetings);
+//
+//        InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
+//                .orElseThrow(() -> new RuntimeException("Meeting not found"));
+//
+//        // Generate a secure, single-use token
+//        String token = UUID.randomUUID().toString();
+//        meeting.setLoginToken(token);
+//        meeting.setTokenExpiry(LocalDateTime.now().plusHours(48)); // Token is valid for 48 hours
+//
+//        meeting.setCandidateEmail(candidateEmail);
+//        meeting.setStatus(InterviewMeeting.MeetingStatus.SCHEDULED);
+//        meetingRepository.save(meeting);
+//
+//        // Construct the magic link for the frontend
+//        String magicLink = "http://localhost:8081/api/auth/start-interview/" + token;
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("status", "assigned");
+//        response.put("message", "Candidate assigned. Share this link with them.");
+//        response.put("magicLink", magicLink);
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     @PostMapping("/candidates")
     public ResponseEntity<Map<String, Object>> addCandidate(@RequestBody CandidateProfile candidate) {
@@ -581,6 +582,7 @@ public class HRController {
     @PostMapping("/schedule-interview")
     public ResponseEntity<Map<String, Object>> scheduleInterview(@RequestParam String candidateEmail) {
         try {
+            System.out.println("scheduleInterview called for "+candidateEmail);
             // 1. Find the candidate's profile
             CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(candidateEmail)
                     .orElseThrow(() -> new RuntimeException("Candidate profile not found for email: " + candidateEmail));
@@ -599,11 +601,27 @@ public class HRController {
             session.setSessionId(sessionId);
             session.setCandidateEmail(candidateEmail);
             session.setQuestionsJson(questionsJson); // Save the generated questions
+            System.out.println(questionsJson);
             session.setCompleted(false);
             sessionRepository.save(session);
 
+
+
+
+
             // 5. Return the sessionId to the frontend to build the magic link
             String magicLink = "http://localhost:8081/api/auth/start-interview/" + sessionId;
+
+            InterviewMeeting meeting= new InterviewMeeting();
+            meeting.setMeetingUrl(magicLink);
+            meeting.setCandidateEmail(candidateEmail);
+            meeting.setStatus(InterviewMeeting.MeetingStatus.SCHEDULED);
+            meeting.setLoginToken(sessionId);
+            meeting.setTokenExpiry(LocalDateTime.now().plusHours(48)); // Token is valid for 48 hours
+            meetingRepository.save(meeting);
+
+
+
             Map<String, Object> response = new HashMap<>();
             response.put("magicLink", magicLink);
             response.put("message", "Interview scheduled successfully.");
@@ -613,6 +631,7 @@ public class HRController {
             e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("message", "Failed to schedule interview: " + e.getMessage());
+
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
