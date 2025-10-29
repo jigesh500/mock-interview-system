@@ -77,33 +77,36 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
   }, []);
 
   // Log interview start event
-  useEffect(() => {
-    if (sessionId && !interviewStarted) {
-      const logInterviewStart = async () => {
-        const eventData = {
-          sessionId,
-          candidateEmail: 'anonymous@interview.com',
-          eventType: "INTERVIEW_START",
-          description: "Interview monitoring started",
-          metadata: JSON.stringify({ timestamp: new Date().toISOString() })
-        };
+useEffect(() => {
+  if (sessionId && !interviewStarted) {
+    const logInterviewStartOnce = async () => {
+      try {
+        await fetch('http://localhost:8081/api/monitoring/log-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            sessionId,
+            candidateEmail: 'anonymous@interview.com',
+            eventType: 'INTERVIEW_START',
+            description: 'Interview monitoring started',
+            metadata: JSON.stringify({ timestamp: new Date().toISOString() }) // Use 'timestamp' for consistency
+          })
+        });
+        console.log('INTERVIEW_START event logged successfully.');
+      } catch (err) {
+        console.error('Error logging interview start:', err);
+      } finally {
+        // IMPORTANT: Always set interviewStarted to true to begin monitoring,
+        // even if the API call fails.
+        setInterviewStarted(true);
+      }
+    };
 
-        try {
-          await fetch('http://localhost:8081/api/monitoring/log-event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(eventData)
-          });
-          setInterviewStarted(true);
-        } catch (err) {
-          console.error("Error logging interview start:", err);
-        }
-      };
-
-      logInterviewStart();
-    }
-  }, [sessionId, interviewStarted]);
+    // This is the most important part: you must CALL the function.
+    logInterviewStartOnce();
+  }
+}, [sessionId, interviewStarted]);
 
   // Event-based face detection monitoring
   useEffect(() => {

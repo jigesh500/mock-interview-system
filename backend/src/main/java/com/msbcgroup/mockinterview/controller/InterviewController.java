@@ -83,21 +83,18 @@ public class InterviewController {
 
     @PostMapping("/submit-answers")
     public ResponseEntity<Map<String, Object>> submitAnswers(
-            @RequestBody Map<String, String> answers,
-            @RequestParam("sessionId") String sessionId,
-            @AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
+            @RequestBody Map<String, Object> requestBody) throws JsonProcessingException {
+        System.out.println("submitAnswers method called");
 
-        if (principal == null) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "User not authenticated");
-            return ResponseEntity.status(401).body(errorResponse);
-        }
 
+        String sessionId = (String) requestBody.get("sessionId");
+        Map<String, String> answers = (Map<String, String>) requestBody.get("answers");
 
         InterviewSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found with id: " + sessionId));
 
         String email = session.getCandidateEmail();
+        System.out.println("email "+email);
         ObjectMapper mapper = new ObjectMapper();
         List<Question> questions = mapper.readValue(session.getQuestionsJson(),
                 new TypeReference<List<Question>>() {
@@ -105,9 +102,13 @@ public class InterviewController {
         session.setCompleted(true);
         sessionRepository.save(session);
         List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndStatus(email, InterviewMeeting.MeetingStatus.SCHEDULED);
-        activeMeetings.forEach(meeting -> meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED));
+        activeMeetings.forEach(meeting -> {
+            meeting.setStatus(InterviewMeeting.MeetingStatus.COMPLETED);
+            meeting.setLoginToken(null);
+            meeting.setTokenExpiry(null);
+        });
         meetingRepository.saveAll(activeMeetings);
-
+        
         Map<String, String> userAnswerMap = new HashMap<>();
 
         for (int i = 0; i < questions.size(); i++) {
@@ -312,10 +313,10 @@ public class InterviewController {
 
         String prompt = """
                     You are an interview question generator.
-                    Generate exactly 10 interview questions tailored to the candidate's background.
+                    Generate exactly 30 interview questions tailored to the candidate's background.
                 
                     Total questions must be 25 and **mix of types**:
-                     - 20 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
+                     - 25 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
                      - 5 Coding/Practical problems (coding challenges, logic-based coding exercises solvable within 5–10 minutes).
                 
                     Candidate Profile:
@@ -325,7 +326,6 @@ public class InterviewController {
                     Description: %s
                 
                     Adjust difficulty based on experience:
-                    
                      - If experience ≤ 1 year → Use **Beginner Level**
                        Focus on: basic syntax, OOP fundamentals, simple algorithms, basic SQL, core language concepts.
                        Avoid: advanced design patterns, complex system design, concurrency, or scaling questions.
@@ -336,11 +336,10 @@ public class InterviewController {
                      - If experience ≥ 5 years → Use **Advanced Level**
                        Focus on: system design, optimization, architecture, performance tuning, scalability, multithreading, design patterns, and advanced algorithms.
                 
-                   Other Constraints
-                    
+                   Other Constraints:
                     -Ensure a natural variety of question topics based on candidate's skills and Description.
                     -Ensure questions are concise, clear, and realistic.
-                    -Use the seed %s to maintain randomness and reproducibility.
+                    -Generate fresh and unique questions each time, ensuring variety and creativity.
                     -Do NOT include any explanations or answers.
                     
                 
@@ -363,7 +362,7 @@ public class InterviewController {
                 }
                 
                 """.formatted(profile.getPositionApplied(), profile.getExperienceYears(),
-                profile.getSkills(), profile.getDescription(), randomSeed);
+                profile.getSkills(), profile.getDescription());
 
         String response = chatClient.prompt()
                 .user(prompt)

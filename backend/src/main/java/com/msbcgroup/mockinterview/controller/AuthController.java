@@ -122,16 +122,15 @@ public class AuthController {
             return;
         }
 
-        InterviewMeeting meeting = meetingOpt.get();
-
-        // 3. SUCCESS: We found the meeting. Now we can get the candidate's email.
-        String candidateEmail = meeting.getCandidateEmail();
-        String meetingUrl = meeting.getMeetingUrl();
-
-        // 4. Invalidate the token to make it single-use (important for security)
-        meeting.setLoginToken(null);
-        meeting.setTokenExpiry(null);
-        meetingRepository.save(meeting);
+//        InterviewMeeting meeting = meetingOpt.get();
+//
+//        // 3. SUCCESS: We found the meeting. Now we can get the candidate's email.
+//        String candidateEmail = meeting.getCandidateEmail();
+//        String meetingUrl = meeting.getMeetingUrl();
+//
+//        // 4. Invalidate the token to make it single-use (important for security)
+//
+//        meetingRepository.save(meeting);
 
         // 5. Redirect the user to a special frontend page with the candidate's details in the URL.
         // This is safe because it's a one-time redirect after successful authentication.

@@ -17,17 +17,28 @@ const CandidateDashboard: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
 
-
   // State for the new magic link flow
   const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State for the confirmation dialog
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // State to track if interview has been started
+  const [interviewStarted, setInterviewStarted] = useState(false);
 
   // State for the original logged-in flow
   const [interviewInfo, setInterviewInfo] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check if interview was already started in this session
+    const started = sessionStorage.getItem(`interview_started_${urlSessionId}`);
+    if (started === 'true') {
+      setInterviewStarted(true);
+    }
+
     if (urlSessionId) {
       // --- Magic Link Flow (Unauthenticated) ---
       const fetchPortalInfo = async () => {
@@ -68,7 +79,7 @@ const CandidateDashboard: React.FC = () => {
     try {
       const response = await candidateAPI.joinInterview();
       const { teamsUrl, sessionId: newSessionId } = response.data;
-      window.open(teamsUrl, '_blank');
+      window.open(examUrl, '_blank', 'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
       setSessionId(newSessionId);
     } catch (error) {
       console.error('Error:', error);
@@ -86,11 +97,25 @@ const CandidateDashboard: React.FC = () => {
     }
   };
 
-  // --- Handler for Magic Link Flow ---
+  // --- Handlers for Magic Link Flow ---
   const handleStartInterview = () => {
+    setShowConfirmation(true);
+  };
+
+  const confirmStartInterview = () => {
     if (urlSessionId) {
-      navigate(`/exam/${urlSessionId}`);
+      const examUrl = `${window.location.origin}/exam/${urlSessionId}`;
+      window.open(examUrl, '_blank', 'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
+      setShowConfirmation(false);
+      setInterviewStarted(true);
+      // Store in sessionStorage to persist across page refreshes
+      sessionStorage.setItem(`interview_started_${urlSessionId}`, 'true');
+      toast.success('Interview opened in a new tab. Please switch to that tab to continue.');
     }
+  };
+
+  const cancelStartInterview = () => {
+    setShowConfirmation(false);
   };
 
   const handleLogout = async () => {
@@ -121,28 +146,84 @@ const CandidateDashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Toaster position="top-center" />
-        <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg border border-slate-200 p-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Welcome, {portalInfo.candidateName}!</h1>
-          <p className="text-lg text-slate-600 mb-4">
-            You are being interviewed for the position of <span className="font-semibold text-slate-700">{portalInfo.positionApplied}</span>.
-          </p>
-          <div className="bg-blue-50 border-l-4 border-blue-400 text-blue-800 p-4 rounded-r-lg my-6 text-left">
-            <p className="font-semibold">Instructions:</p>
-            <ul className="list-disc list-inside mt-2 text-sm">
-              <li>Ensure you have a stable internet connection.</li>
-              <li>The interview is timed. Please complete it in one session.</li>
-              <li>Click the "Start Interview" button below when you are ready to begin.</li>
-            </ul>
+
+        {/* Confirmation Dialog */}
+        {showConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+              <h2 className="text-xl font-bold mb-4">Start Interview Confirmation</h2>
+              <p className="mb-6">Are you sure you want to start the interview? The interview will open in a new tab. Make sure you have a stable internet connection.</p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={cancelStartInterview}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmStartInterview}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                  Start Interview
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={handleStartInterview}
-            className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-12 rounded-lg text-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300"
-          >
-            Start Interview
-          </button>
-          <p className="text-xs text-slate-400 mt-8">
-            If you encounter any issues, please contact the HR representative who sent you this link.
-          </p>
+        )}
+
+        <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg border border-slate-200 p-8 text-center">
+          {interviewStarted ? (
+            // Show this when interview has been started
+            <div>
+              <div className="mb-6 flex justify-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-slate-800 mb-2">Interview Started</h1>
+              <p className="text-lg text-slate-600 mb-6">
+                Your interview has been started in a new tab. Please complete it there.
+              </p>
+              <div className="bg-blue-50 border-l-4 border-blue-400 text-blue-800 p-4 rounded-r-lg my-6 text-left">
+                <p className="font-semibold">Important:</p>
+                <ul className="list-disc list-inside mt-2 text-sm">
+                  <li>Do not close this tab while taking the interview.</li>
+                  <li>Switch to the new tab to continue with your interview.</li>
+
+                </ul>
+              </div>
+              <p className="text-xs text-slate-400 mt-8">
+                If you encounter any issues, please contact the HR representative who sent you this link.
+              </p>
+            </div>
+          ) : (
+            // Show this when interview hasn't been started yet
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800 mb-2">Welcome, {portalInfo.candidateName}!</h1>
+              <p className="text-lg text-slate-600 mb-4">
+                You are being interviewed for the position of <span className="font-semibold text-slate-700">{portalInfo.positionApplied}</span>.
+              </p>
+              <div className="bg-blue-50 border-l-4 border-blue-400 text-blue-800 p-4 rounded-r-lg my-6 text-left">
+                <p className="font-semibold">Instructions:</p>
+                <ul className="list-disc list-inside mt-2 text-sm">
+                  <li>Ensure you have a stable internet connection.</li>
+                  <li>The interview is timed. Please complete it in one session.</li>
+                  <li>Click the "Start Interview" button below when you are ready to begin.</li>
+                </ul>
+              </div>
+              <button
+                onClick={handleStartInterview}
+                className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-12 rounded-lg text-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300"
+              >
+                Start Interview
+              </button>
+              <p className="text-xs text-slate-400 mt-8">
+                If you encounter any issues, please contact the HR representative who sent you this link.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -285,7 +285,7 @@ const HRDashboard: React.FC = () => {
     if (interviewStatus === 'Completed' && summaryStatus) {
       return (
         <div className="flex flex-col items-center gap-1">
-          <div className="text-xs font-medium text-slate-600">First Round</div>
+
           {summaryTime && (
             <div className="text-xs text-slate-500">
               {new Date(summaryTime).toLocaleString()}
@@ -794,16 +794,6 @@ const HRDashboard: React.FC = () => {
                     View
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                  <span className="font-medium text-slate-700">Second Round Report</span>
-                  <button
-                    className="px-4 py-2 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:opacity-90"
-                    style={{ backgroundColor: '#56C5D0' }}
-                    onClick={() => handleViewReport(reportOptionsCandidate, 'second')}
-                  >
-                    View
-                  </button>
-                </div>
               </div>
               <div className="mt-6 text-center">
                 <button
@@ -847,18 +837,12 @@ const HRDashboard: React.FC = () => {
                       <span className="font-medium text-slate-600">Email:</span>
                       <span className="ml-2 text-slate-800">{viewReportData.candidateEmail}</span>
                     </div>
-                    <div>
-                      <span className="font-medium text-slate-600">Interview Date:</span>
-                      <span className="ml-2 text-slate-800">
-                        {viewReportData.interviewDate ? new Date(viewReportData.interviewDate).toLocaleString() : 'N/A'}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
                 {/* Questions and Answers */}
                 <div>
-                  <h4 className="font-semibold text-slate-800 mb-4">Interview Questions & Answers</h4>
+
                   <div className="space-y-4">
                     {viewReportData.questions?.map((q: any, index: number) => (
                       <div key={index} className="border border-slate-200 rounded-lg p-4">
@@ -894,14 +878,10 @@ const HRDashboard: React.FC = () => {
                 {/* Score Information */}
                 {viewReportData.score !== undefined && (
                   <div className="bg-green-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-slate-800 mb-2">Performance Score</h4>
+                    <h4 className="font-semibold text-slate-800 mb-2">Score</h4>
                     <div className="flex items-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {viewReportData.score}%
-                      </div>
-                      <div className="ml-4 text-sm text-slate-600">
-                        <div>Correct Answers: {viewReportData.correctAnswers || 0}</div>
-                        <div>Total Questions: {viewReportData.totalQuestions || 0}</div>
+                        {viewReportData.score}
                       </div>
                     </div>
                   </div>

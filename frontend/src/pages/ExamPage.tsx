@@ -16,9 +16,7 @@ interface Question {
 const ExamPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
 
-    console.log(user)
 
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -66,7 +64,6 @@ const ExamPage: React.FC = () => {
     e.preventDefault();
     if (!sessionId) return;
 
-    // Basic validation: Check if all questions are answered
     if (Object.keys(answers).length < questions.length) {
       if (!window.confirm('You have not answered all questions. Are you sure you want to submit?')) {
         return;
@@ -78,9 +75,30 @@ const ExamPage: React.FC = () => {
 
     try {
       await interviewAPI.submitAnswers(answers, sessionId);
+
+      // Log INTERVIEW_END event
+      try {
+            await fetch('http://localhost:8081/api/monitoring/log-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                sessionId,
+                candidateEmail: 'anonymous@interview.com', // Or get from props/state
+                eventType: 'INTERVIEW_END',
+                description: 'Interview completed successfully',
+                metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+              })
+            });
+            console.log('INTERVIEW_END event logged successfully.');
+          } catch (err) {
+            console.error('Error logging interview end:', err);
+          }
+
       toast.dismiss();
       toast.success('Interview submitted successfully!');
-      // Redirect to a thank you page after a short delay
+
+      // Wait a bit before redirecting to ensure the event is logged
       setTimeout(() => navigate('/thank-you'), 2000);
     } catch (err: any) {
       console.error('Failed to submit answers:', err);

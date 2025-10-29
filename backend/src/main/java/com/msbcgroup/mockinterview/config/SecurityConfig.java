@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/start-interview/**").permitAll()
                         .requestMatchers("/candidate/portal-info/**").permitAll()
-                        .requestMatchers("/interview/start-with-session/**").permitAll()
+                        .requestMatchers("/interview/**").permitAll()
                         .requestMatchers("/api/monitoring/**").permitAll()
                         .requestMatchers("/hr/**", "/interview/**", "/candidate/**", "/api/auth/**").authenticated()
                         .anyRequest().authenticated()

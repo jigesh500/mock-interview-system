@@ -41,7 +41,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const { questions, currentQuestionIndex, answers, sessionId } = useAppSelector((state) => state.test);
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
 
-  const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const [timeLeft, setTimeLeft] = useState(60 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
   const [micReady, setMicReady] = useState(false);
@@ -86,16 +86,23 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         deactivateSecurity();
         (window as any).deactivateCameraSecurity?.();
         try {
-          await interviewAPI.logEvent({
-            sessionId,
-            eventType: 'INTERVIEW_END',
-            description: 'Interview completed successfully',
-            metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
-          });
-          await new Promise(resolve => setTimeout(resolve, 700));
-        } catch (err) {
-          console.error('Error logging interview end:', err);
-        }
+                await fetch('http://localhost:8081/api/monitoring/log-event', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    sessionId,
+                    candidateEmail: 'anonymous@interview.com', // Or get from state/redux
+                    eventType: 'INTERVIEW_END',
+                    description: 'Interview completed successfully',
+                    metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+                  })
+                });
+                console.log('INTERVIEW_END event logged successfully.');
+              } catch (err) {
+                console.error('Error logging interview end:', err);
+              }
+
 
         toast.success("Interview submitted successfully!");
         if (onExamSubmit) onExamSubmit();
@@ -270,7 +277,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                 <Box sx={{ position: "relative", display: "inline-flex" }}>
                   <CircularProgress
                     variant="determinate"
-                    value={(timeLeft / (15 * 60)) * 100}
+                    value={(timeLeft / (60 * 60)) * 100}
                     size={90}
                     thickness={5}
                     color={timeLeft <= 30 ? "error" : "primary"}
