@@ -247,7 +247,7 @@ public class InterviewController {
           "summary": "[One sentence summary including performance, strengths, weaknesses, and violations]",
           "strengths": "[3 bullet points separated by |]",
           "improvements": "[3 bullet points separated by |]",
-          "recommendation": "[Hire/Further Interview/Don't Hire - One sentence]"
+          
         }
         """);
 
@@ -302,7 +302,6 @@ public class InterviewController {
         Map<String, Object> response = new HashMap<>();
         response.put("questions", questions);
         response.put("sessionId", sessionId);
-        response.put("meetingId", session.getMeetingId());
 
         return ResponseEntity.ok(response);
     }

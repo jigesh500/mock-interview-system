@@ -18,16 +18,12 @@ public class InterviewSession {
     @Column(columnDefinition = "JSON")
     private String questionsJson;
 
-    private String meetingId;  // Links to InterviewMeeting
-    private String hrEmail;
+
     private LocalDateTime createdAt;
     private boolean completed = false;
 
 
-    private Integer totalQuestions;
 
-    public Integer getTotalQuestions() { return totalQuestions; }
-    public void setTotalQuestions(Integer totalQuestions) { this.totalQuestions = totalQuestions; }
 
 
     public InterviewSession() {
@@ -70,11 +66,6 @@ public class InterviewSession {
         return completed;
     }
 
-    public String getMeetingId() { return meetingId; }
-    public void setMeetingId(String meetingId) { this.meetingId = meetingId; }
-
-    public String getHrEmail() { return hrEmail; }
-    public void setHrEmail(String hrEmail) { this.hrEmail = hrEmail; }
 
     public void setCompleted(boolean completed) {
         this.completed = completed;

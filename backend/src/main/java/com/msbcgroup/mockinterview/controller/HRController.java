@@ -99,30 +99,30 @@ public class HRController {
     }
 
 
-    @PostMapping("/create-meeting")
-    public ResponseEntity<Map<String, Object>> createMeeting(@AuthenticationPrincipal OAuth2User principal) {
-        String hrEmail = principal != null ? principal.getAttribute("email") : "unknown@example.com";
-
-        // Generate realistic Teams meeting URL for demo purposes
-        String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
-        String realisticUrl = "https://teams.microsoft.com/l/meetup-join/19%3ameeting_"
-                + UUID.randomUUID().toString().replace("-", "") + "%40thread.v2/0";
-
-        InterviewMeeting meeting = new InterviewMeeting();
-        meeting.setMeetingId(meetingId);
-        meeting.setHrEmail(hrEmail);
-        meeting.setMeetingUrl(realisticUrl);
-
-        meetingRepository.save(meeting);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("meetingId", meetingId);
-        response.put("meetingUrl", realisticUrl);
-        response.put("status", "created");
-        response.put("note", "Demo Teams meeting URL");
-
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping("/create-meeting")
+//    public ResponseEntity<Map<String, Object>> createMeeting(@AuthenticationPrincipal OAuth2User principal) {
+//        String hrEmail = principal != null ? principal.getAttribute("email") : "unknown@example.com";
+//
+//        // Generate realistic Teams meeting URL for demo purposes
+//        String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
+//        String realisticUrl = "https://teams.microsoft.com/l/meetup-join/19%3ameeting_"
+//                + UUID.randomUUID().toString().replace("-", "") + "%40thread.v2/0";
+//
+//        InterviewMeeting meeting = new InterviewMeeting();
+//        meeting.setMeetingId(meetingId);
+//        meeting.setHrEmail(hrEmail);
+//        meeting.setMeetingUrl(realisticUrl);
+//
+//        meetingRepository.save(meeting);
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("meetingId", meetingId);
+//        response.put("meetingUrl", realisticUrl);
+//        response.put("status", "created");
+//        response.put("note", "Demo Teams meeting URL");
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     @PostMapping("/candidate/{candidateEmail}/round/select")
     public ResponseEntity<Map<String, Object>> selectCandidate(
@@ -604,10 +604,6 @@ public class HRController {
             System.out.println(questionsJson);
             session.setCompleted(false);
             sessionRepository.save(session);
-
-
-
-
 
             // 5. Return the sessionId to the frontend to build the magic link
             String magicLink = "http://localhost:8081/api/auth/start-interview/" + sessionId;

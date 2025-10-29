@@ -24,8 +24,7 @@ public class    InterviewSummary {
     @Column(columnDefinition = "TEXT")
     private String improvements;
 
-    @Column(columnDefinition = "TEXT")
-    private String recommendation;
+
 
     public InterviewSummary() {}
 
@@ -34,7 +33,7 @@ public class    InterviewSummary {
         this.summary = summary;
         this.strengths = strengths;
         this.improvements = improvements;
-        this.recommendation = recommendation;
+
     }
 
     public Long getId() { return id; }
@@ -52,8 +51,7 @@ public class    InterviewSummary {
     public String getImprovements() { return improvements; }
     public void setImprovements(String improvements) { this.improvements = improvements; }
 
-    public String getRecommendation() { return recommendation; }
-    public void setRecommendation(String recommendation) { this.recommendation = recommendation; }
+
 
     public InterviewResult getInterviewResult() { return interviewResult; }
     public void setInterviewResult(InterviewResult interviewResult) { this.interviewResult = interviewResult; }

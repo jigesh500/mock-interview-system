@@ -16,14 +16,16 @@ import {
   FormControl,
   Box,
   Button,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  Tooltip,
+  LinearProgress
 } from '@mui/material';
 import {
   saveAnswer,
   nextQuestion,
   previousQuestion,
   markQuestionForReview,
-  markQuestionAsAnswered,
   setQuestions,
   setSessionId as setReduxSessionId,
   resetTestState
@@ -31,6 +33,7 @@ import {
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
 import MicrophoneMonitor from '../../../Components/MicrophoneMonitor';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 interface StartTestProps {
   onExamSubmit?: () => void;
@@ -69,6 +72,45 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
 
+  // 🚫 Prevent refresh, back navigation, and reload shortcuts
+  useEffect(() => {
+    // Warn before leaving the page (refresh, close, etc.)
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "Are you sure you want to leave? Your interview progress will be lost.";
+    };
+
+    // Disable browser back button
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      window.history.pushState(null, "", window.location.href);
+      toast.error("Back navigation is disabled during the interview.");
+    };
+
+    // Disable refresh shortcuts (F5 / Ctrl+R)
+    const disableKeys = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey && e.key.toLowerCase() === "r") || // Ctrl+R
+        e.key === "F5"
+      ) {
+        e.preventDefault();
+        toast.error("Refreshing is disabled during the interview.");
+      }
+    };
+
+    // Attach listeners
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("keydown", disableKeys);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", disableKeys);
+    };
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
 
@@ -86,23 +128,22 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         deactivateSecurity();
         (window as any).deactivateCameraSecurity?.();
         try {
-                await fetch('http://localhost:8081/api/monitoring/log-event', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    sessionId,
-                    candidateEmail: 'anonymous@interview.com', // Or get from state/redux
-                    eventType: 'INTERVIEW_END',
-                    description: 'Interview completed successfully',
-                    metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
-                  })
-                });
-                console.log('INTERVIEW_END event logged successfully.');
-              } catch (err) {
-                console.error('Error logging interview end:', err);
-              }
-
+          await fetch('http://localhost:8081/api/monitoring/log-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              sessionId,
+              candidateEmail: 'anonymous@interview.com',
+              eventType: 'INTERVIEW_END',
+              description: 'Interview completed successfully',
+              metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
+            })
+          });
+          console.log('INTERVIEW_END event logged successfully.');
+        } catch (err) {
+          console.error('Error logging interview end:', err);
+        }
 
         toast.success("Interview submitted successfully!");
         if (onExamSubmit) onExamSubmit();
@@ -130,7 +171,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
           toast.error("Could not start the interview. The link may be invalid or expired.");
         }
       }
-    }
+    };
     startInterview();
   }, [dispatch, urlSessionId]);
 
@@ -150,6 +191,33 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
+
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    const showDisabledToast = (action: string) => {
+      toast.error(`${action} is disabled during the test.`);
+    };
+
+    editor.addAction({
+      id: 'disable-paste',
+      label: 'Paste',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV],
+      run: () => showDisabledToast('Pasting')
+    });
+
+    editor.addAction({
+      id: 'disable-cut',
+      label: 'Cut',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX],
+      run: () => showDisabledToast('Cutting')
+    });
+
+    editor.addAction({
+      id: 'disable-copy',
+      label: 'Copy',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC],
+      run: () => showDisabledToast('Copying')
+    });
+  };
 
   if (!cameraReady || !micReady) {
     return (
@@ -203,6 +271,8 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   };
 
   const allQuestionsAnswered = questions.every((q) => (answers[q.id] ?? "").trim() !== "");
+  const unansweredQuestions = questions.filter((q) => (answers[q.id] ?? "").trim() === "").length;
+  const progressPercentage = ((questions.length - unansweredQuestions) / questions.length) * 100;
 
   const handleAnswerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     dispatch(saveAnswer({ questionId: currentQuestion.id, answer: event.target.value }));
@@ -220,15 +290,15 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
     setIsExecuting(true);
     setCodeOutput('Executing...');
-    
+
     const result = await executeCode(selectedAnswer, currentLanguage);
-    
+
     if (result.error) {
       setCodeOutput(`Error: ${result.error}`);
     } else {
       setCodeOutput(result.output || 'No output');
     }
-    
+
     setIsExecuting(false);
   };
 
@@ -291,11 +361,29 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                       justifyContent: "center",
                     }}
                   >
-                    <Typography variant="caption" component="div" color="text.secondary" className="font-bold">
+                    <Typography variant="h6" component="div" color="text.secondary" className="font-bold">
                       {formatTime(timeLeft)}
                     </Typography>
                   </Box>
                 </Box>
+              </Box>
+
+              {/* Progress Bar */}
+              <Box className="mb-4">
+                <Box className="flex justify-between items-center mb-1">
+                  <Typography variant="body2" color="text.secondary">
+                    Progress
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {questions.length - unansweredQuestions} of {questions.length} answered
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={progressPercentage}
+                  color={progressPercentage === 100 ? "success" : "primary"}
+                  sx={{ height: 8, borderRadius: 4 }}
+                />
               </Box>
 
               {/* Question Content */}
@@ -329,8 +417,8 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                 {currentQuestion.type === "Coding" && (
                   <Box className="border rounded">
                     <Box className="flex justify-between items-center p-2 bg-gray-100 border-b">
-                      <select 
-                        value={currentLanguage} 
+                      <select
+                        value={currentLanguage}
                         onChange={(e) => setCurrentLanguage(e.target.value)}
                         className="px-2 py-1 border rounded"
                       >
@@ -354,11 +442,13 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                       value={selectedAnswer}
                       onChange={handleCodeChange}
                       theme="vs-dark"
+                      onMount={handleEditorDidMount}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 14,
                         wordWrap: "on",
                         automaticLayout: true,
+                        contextmenu: false, // Disable right-click context menu
                       }}
                     />
                     <Box className="p-3 bg-black text-green-400 font-mono text-sm min-h-[80px] border-t">
@@ -369,9 +459,27 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                 )}
               </Box>
 
+              {/* Enhanced Warning Message */}
+              {!allQuestionsAnswered && (
+                <Box className="mb-4">
+                  <Alert
+                    severity="warning"
+                    icon={<WarningAmberIcon fontSize="inherit" />}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    <Typography variant="body2" fontWeight="medium">
+                      {unansweredQuestions} question{unansweredQuestions > 1 ? 's' : ''} remaining
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Complete all questions to enable submission
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+
               {/* Navigation and Action Buttons */}
-              <Box className="flex justify-between items-center">
-                <Box className="space-x-2">
+              <Box className="flex items-center justify-between">
+                <Box className="flex space-x-2">
                   <Button
                     variant="outlined"
                     onClick={() => dispatch(previousQuestion())}
@@ -379,32 +487,39 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                   >
                     Previous
                   </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => dispatch(nextQuestion())}
-                    disabled={currentQuestionIndex === questions.length - 1}
-                  >
-                    Next
-                  </Button>
+
                 </Box>
 
-                <Box className="space-x-2">
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => dispatch(markQuestionForReview(currentQuestion.id))}
+                <Box className="flex-1 flex justify-center">
+                  <Tooltip
+                    title={!allQuestionsAnswered ?
+                      `You have ${unansweredQuestions} unanswered question${unansweredQuestions > 1 ? 's' : ''}. Please answer all questions before submitting.` :
+                      "Submit your interview"
+                    }
+                    placement="top"
                   >
-                    Mark for Review
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : "Submit Interview"}
-                  </Button>
+                    <span>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="large"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !allQuestionsAnswered}
+                        sx={{ px: 6, py: 1.5 }}
+                      >
+                        {isSubmitting ? "Submitting..." : "Submit Interview"}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </Box>
+
+                <Button
+                                    variant="outlined"
+                                    onClick={() => dispatch(nextQuestion())}
+                                    disabled={currentQuestionIndex === questions.length - 1}
+                                  >
+                                    Next
+                                  </Button>
               </Box>
             </CardContent>
           </Card>

@@ -30,44 +30,44 @@ public class TestController {
     private InterviewSessionRepository sessionRepository;
 
     // Test HR create meeting
-    @PostMapping("/hr/create-meeting")
-    public ResponseEntity<Map<String, Object>> testCreateMeeting(@RequestParam String hrEmail) {
-        String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
-        String mockTeamsUrl = "https://teams.microsoft.com/l/meetup-join/mock/" + meetingId;
-
-        InterviewMeeting meeting = new InterviewMeeting();
-        meeting.setMeetingId(meetingId);
-        meeting.setHrEmail(hrEmail);
-        meeting.setMeetingUrl(mockTeamsUrl);
-
-        meetingRepository.save(meeting);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("meetingId", meetingId);
-        response.put("meetingUrl", mockTeamsUrl);
-        response.put("status", "created");
-
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping("/hr/create-meeting")
+//    public ResponseEntity<Map<String, Object>> testCreateMeeting(@RequestParam String hrEmail) {
+//        String meetingId = "meeting_" + UUID.randomUUID().toString().substring(0, 8);
+//        String mockTeamsUrl = "https://teams.microsoft.com/l/meetup-join/mock/" + meetingId;
+//
+//        InterviewMeeting meeting = new InterviewMeeting();
+//        meeting.setMeetingId(meetingId);
+//        meeting.setHrEmail(hrEmail);
+//        meeting.setMeetingUrl(mockTeamsUrl);
+//
+//        meetingRepository.save(meeting);
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("meetingId", meetingId);
+//        response.put("meetingUrl", mockTeamsUrl);
+//        response.put("status", "created");
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     // Test assign candidate
-    @PostMapping("/hr/assign-candidate")
-    public ResponseEntity<Map<String, String>> testAssignCandidate(
-            @RequestParam String meetingId,
-            @RequestParam String candidateEmail) {
-
-        InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
-                .orElseThrow(() -> new RuntimeException("Meeting not found"));
-
-        meeting.setCandidateEmail(candidateEmail);
-        meetingRepository.save(meeting);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "assigned");
-        response.put("message", "Candidate assigned successfully");
-
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping("/hr/assign-candidate")
+//    public ResponseEntity<Map<String, String>> testAssignCandidate(
+//            @RequestParam String meetingId,
+//            @RequestParam String candidateEmail) {
+//
+//        InterviewMeeting meeting = meetingRepository.findByMeetingId(meetingId)
+//                .orElseThrow(() -> new RuntimeException("Meeting not found"));
+//
+//        meeting.setCandidateEmail(candidateEmail);
+//        meetingRepository.save(meeting);
+//
+//        Map<String, String> response = new HashMap<>();
+//        response.put("status", "assigned");
+//        response.put("message", "Candidate assigned successfully");
+//
+//        return ResponseEntity.ok(response);
+//    }
 
     // Get all sessions (for debugging)
     @GetMapping("/sessions")

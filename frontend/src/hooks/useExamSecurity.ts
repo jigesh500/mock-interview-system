@@ -52,7 +52,8 @@ export const useExamSecurity = (
         (e.ctrlKey && e.key === 'c'),
         (e.ctrlKey && e.key === 'v'),
         (e.ctrlKey && e.key === 'r'),
-        (e.altKey && e.key === 'Tab')
+        (e.altKey && e.key === 'Tab'),
+          (e.metaKey && e.shiftKey && e.key === 's')
       ];
 
       if (forbidden.some(Boolean)) {
@@ -97,9 +98,9 @@ export const useExamSecurity = (
         if (newCount === 1) {
           toast.error("⚠️ WARNING: Tab switching detected! Please stay on this tab.");
         } else if (newCount === 2) {
-          toast.error("⚠️ SECOND WARNING: Tab switching detected again!");
+          toast.error("⚠️  WARNING: Tab switching detected again!");
         } else if (newCount === 3) {
-          toast.error("🚨 FINAL WARNING: Please avoid tab switching during the interview!");
+          toast.error("🚨  WARNING: Please avoid tab switching during the interview!");
         } else if (newCount > 3) {
           // MODIFIED: Just show a toast for subsequent violations, do not terminate
           toast.error(`⚠️ Tab switching violation #${newCount}. Please stay on this tab.`);

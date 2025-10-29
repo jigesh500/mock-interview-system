@@ -13,7 +13,6 @@ public class InterviewMeeting {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String meetingId;
     private String candidateEmail;
     private String hrEmail;
     private String meetingUrl;
@@ -36,9 +35,6 @@ public class InterviewMeeting {
     }
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
-    public String getMeetingId() { return meetingId; }
-    public void setMeetingId(String meetingId) { this.meetingId = meetingId; }
 
     public String getHrEmail() { return hrEmail; }
     public void setHrEmail(String hrEmail) { this.hrEmail = hrEmail; }
