@@ -47,7 +47,9 @@ import java.time.LocalDateTime;
 
     private String decisionMadeBy;
 
-    private String interviewStatus = "PENDING";
+    private String interviewStatus = "Pending";
+
+    private String overallStatus = "Pending"; // New field for tracking overall status
 
     private String secondRoundInterviewerEmail;
 
@@ -201,6 +203,14 @@ import java.time.LocalDateTime;
 
     public void setSecondRoundInterviewerName(String secondRoundInterviewerName) {
         this.secondRoundInterviewerName = secondRoundInterviewerName;
+    }
+
+    public String getOverallStatus() {
+        return overallStatus;
+    }
+
+    public void setOverallStatus(String overallStatus) {
+        this.overallStatus = overallStatus;
     }
     // Helper method to check if candidate needs second round
     public boolean needsSecondRound() {

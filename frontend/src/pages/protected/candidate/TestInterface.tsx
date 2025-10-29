@@ -32,7 +32,8 @@ import {
 } from '../../../redux/reducers/testSlice';
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
-import MicrophoneMonitor from '../../../Components/MicrophoneMonitor';
+
+import VoiceMonitorIndicator from '../../../Components/VoiceMonitorIndicator';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 interface StartTestProps {
@@ -47,7 +48,6 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [timeLeft, setTimeLeft] = useState(60 * 60);
   const [currentLanguage, setCurrentLanguage] = useState('javascript');
   const [cameraReady, setCameraReady] = useState(false);
-  const [micReady, setMicReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [codeOutput, setCodeOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
@@ -56,19 +56,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     console.warn('Security violation:', type, message);
   }, []);
 
-  const handleAudioViolation = useCallback(async (type: string, message: string) => {
-    console.warn('Audio violation:', type, message);
-    try {
-      await interviewAPI.logEvent({
-        sessionId,
-        eventType: type,
-        description: message,
-        metadata: JSON.stringify({ timestamp: new Date().toISOString() })
-      });
-    } catch (err) {
-      console.error('Error logging audio violation:', err);
-    }
-  }, [sessionId]);
+
 
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
 
@@ -219,28 +207,22 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     });
   };
 
-  if (!cameraReady || !micReady) {
+  if (!cameraReady) {
     return (
       <>
         <Toaster position="top-center" />
         <Box className="flex justify-center items-center h-screen">
           <Card className="p-8 text-center">
             <Typography variant="h6" className="mb-4">
-              📷🎤 Camera & Microphone Permission Required
+              📷 Camera Permission Required
             </Typography>
             <Typography className="mb-4">
-              Please allow camera and microphone access to start your interview
+              Please allow camera access to start your interview
             </Typography>
             <div className="space-y-4">
               <CameraMonitor
                 sessionId={sessionId || ''}
                 onCameraReady={setCameraReady}
-              />
-              <MicrophoneMonitor
-                sessionId={sessionId || ''}
-                onMicReady={setMicReady}
-                onAudioViolation={handleAudioViolation}
-                threshold={80}
               />
             </div>
           </Card>
@@ -319,11 +301,9 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                   (window as any).deactivateCameraSecurity?.();
                 }}
               />
-              <MicrophoneMonitor
-                sessionId={sessionId}
-                onMicReady={setMicReady}
-                onAudioViolation={handleAudioViolation}
-                threshold={80}
+              <VoiceMonitorIndicator
+                sessionId={sessionId || ''}
+                candidateEmail="candidate@interview.com"
               />
             </Box>
           </Box>

@@ -1,8 +1,7 @@
 package com.msbcgroup.mockinterview.controller;
 
 
-import com.msbcgroup.mockinterview.model.InterviewMeeting;
-import com.msbcgroup.mockinterview.repository.InterviewMeetingRepository;
+import com.msbcgroup.mockinterview.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,10 +16,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @Controller
 @RequestMapping("/api/auth")
@@ -29,7 +26,7 @@ public class AuthController {
 
 
     @Autowired
-    private InterviewMeetingRepository meetingRepository;
+    private AuthService authService;
 
     @Value("${spring.security.oauth2.client.registration.auth0.client-id}")
     private String clientId;
@@ -45,7 +42,7 @@ public class AuthController {
 
             if (email != null && name != null) {
 
-                String role = determineUserRole(email, principal);
+                String role = authService.determineUserRole(email);
 
                 Map<String, Object> user = new HashMap<>();
                 user.put("id", email);
@@ -66,13 +63,7 @@ public class AuthController {
     }
 
 
-    private String determineUserRole(String email, OAuth2User principal) {
-        System.out.println(email);
-        if (email!=null&&email.equals("jigesh.jethava@msbcgroup.com")) {
-            return "hr";
-        }
-        return "candidate";
-    }
+
 
     @PostMapping("/logout")
     @ResponseBody
@@ -108,32 +99,11 @@ public class AuthController {
 
     @GetMapping("/start-interview/{token}")
     public void startInterviewWithToken(@PathVariable String token, HttpServletResponse httpResponse) throws IOException {
-
-        // 1. Look up the meeting by the secure token
-        Optional<InterviewMeeting> meetingOpt = meetingRepository.findByLoginToken(token);
-
-        // 2. Validate the token and meeting status
-        if (meetingOpt.isEmpty() ||
-                meetingOpt.get().getStatus() != InterviewMeeting.MeetingStatus.SCHEDULED ||
-                (meetingOpt.get().getTokenExpiry() != null && meetingOpt.get().getTokenExpiry().isBefore(LocalDateTime.now())))
-        {
-            // If token is not found, expired, or inactive, redirect to an error page
+        if (!authService.isValidInterviewToken(token)) {
             httpResponse.sendRedirect("http://localhost:5173/invalid-link");
             return;
         }
 
-//        InterviewMeeting meeting = meetingOpt.get();
-//
-//        // 3. SUCCESS: We found the meeting. Now we can get the candidate's email.
-//        String candidateEmail = meeting.getCandidateEmail();
-//        String meetingUrl = meeting.getMeetingUrl();
-//
-//        // 4. Invalidate the token to make it single-use (important for security)
-//
-//        meetingRepository.save(meeting);
-
-        // 5. Redirect the user to a special frontend page with the candidate's details in the URL.
-        // This is safe because it's a one-time redirect after successful authentication.
         String frontendRedirectUrl = String.format(
                 "http://localhost:5173/candidate/portal-info/%s",
                 token);

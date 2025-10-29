@@ -17,6 +17,7 @@ export const authAPI = {
 export const hrAPI = {
   getMyMeetings: () => api.get('/hr/meetings'),
   getCandidates: () => api.get('/hr/dashboard'),
+  getDashboard: () => api.get('/hr/dashboard'),
   uploadResume: (formData: FormData) => api.post('/hr/upload-resume', formData),
   addCandidate: (candidateData: any) => api.post('/hr/candidates', candidateData),
   deleteCandidate: (candidateName: string) =>

@@ -10,8 +10,6 @@ import com.msbcgroup.mockinterview.repository.*;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -25,9 +23,6 @@ public class InterviewController {
 
     @Autowired
     private InterviewResultRepository interviewResult;
-
-    @Autowired
-    private CandidateProfileRepository candidateProfileRepository;
 
     @Autowired
     private InterviewSessionRepository sessionRepository;

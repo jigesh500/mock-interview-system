@@ -33,7 +33,10 @@ public class MonitoringEvent {
         WINDOW_BLUR,
         INTERVIEW_START,
         INTERVIEW_END,
-        INTERVIEW_TERMINATED
+        INTERVIEW_TERMINATED,
+        VOICE_CALIBRATION_COMPLETE,
+        UNKNOWN_VOICE_DETECTED,
+        MULTIPLE_VOICES_DETECTED
     }
 
     public MonitoringEvent() {

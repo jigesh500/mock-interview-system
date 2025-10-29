@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { hrAPI } from '../../services/api';
 
 interface Candidate {
   candidateEmail: string;
@@ -32,20 +32,11 @@ const ScheduleInterviewModal: React.FC<ScheduleInterviewModalProps> = ({
 
     setLoading(true);
     try {
-      // The backend expects candidateEmail as a request parameter
-      const response = await axios.post(
-        `http://localhost:8081/hr/schedule-interview`,
-        null, // No request body is needed
-        {
-          params: { candidateEmail: selectedCandidateEmail }, // Send as URL parameter
-          withCredentials: true // Include cookies to maintain session
-        }
-      );
-
-      // The backend returns an object like { magicLink: "..." }. We need to extract the link.
+      const response = await hrAPI.scheduleInterview(selectedCandidateEmail);
+      
       if (response.data && response.data.magicLink) {
         toast.success('Interview scheduled and link generated!');
-        onInterviewScheduled(response.data.magicLink); // Pass only the magic link string back
+        onInterviewScheduled(response.data.magicLink);
       }
       onClose();
     } catch (error: any) {

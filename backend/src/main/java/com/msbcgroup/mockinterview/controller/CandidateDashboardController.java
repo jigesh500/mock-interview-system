@@ -2,12 +2,10 @@ package com.msbcgroup.mockinterview.controller;
 
 import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.InterviewSession;
-import com.msbcgroup.mockinterview.repository.CandidateProfileRepository;
 import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
+import com.msbcgroup.mockinterview.service.CandidateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +19,7 @@ public class CandidateDashboardController {
     private InterviewSessionRepository sessionRepository;
 
     @Autowired
-    private CandidateProfileRepository candidateProfileRepository;
+    private CandidateService candidateService;
 
     /**
      * Public endpoint for a candidate to get interview info using a session token.
@@ -33,8 +31,7 @@ public class CandidateDashboardController {
                 .orElseThrow(() -> new RuntimeException("Invalid or expired session token."));
 
         // Use the email from the session to find the candidate's profile
-        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(session.getCandidateEmail())
-                .orElseThrow(() -> new RuntimeException("Candidate profile not found."));
+        CandidateProfile profile = candidateService.findCandidateByEmail(session.getCandidateEmail());
 
         Map<String, Object> response = new HashMap<>();
         response.put("candidateName", profile.getCandidateName());

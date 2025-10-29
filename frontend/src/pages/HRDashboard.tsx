@@ -52,10 +52,13 @@ const HRDashboard: React.FC = () => {
     let inProgress = 0;
 
     candidates.forEach(candidate => {
-      if (candidate.secondRoundStatus === 'PASS') {
-        passed++;
-      } else if (candidate.firstRoundStatus === 'FAIL' || candidate.secondRoundStatus === 'FAIL') {
-        failed++;
+      const status = candidate.overallStatus || 'Pending';
+      if (status === 'Completed') {
+        if (candidate.secondRoundStatus === 'PASS') {
+          passed++;
+        } else {
+          failed++;
+        }
       } else {
         inProgress++;
       }
@@ -69,20 +72,20 @@ const HRDashboard: React.FC = () => {
 
   // Filter candidates available for first-round scheduling
   const availableForSchedulingCandidates = useMemo(() => {
-    return candidates.filter(c => c.interviewStatus === 'Pending');
+    return candidates.filter(c => !c.overallStatus || c.overallStatus === 'Pending');
   }, [candidates]);
 
   // Cell renderer components
   const StatusRenderer = (props: any) => {
-    const status = props.value;
+    const status = props.value || 'Pending';
     const colorClass =
       status === 'Completed' ? 'bg-green-100 text-green-700 border border-green-200' :
-      status === 'Scheduled' ? 'text-white border' :
+      status === 'In Progress' ? 'text-white border' :
       status === 'Pending' ? 'text-white border' :
       'text-white border';
 
     const bgStyle =
-      status === 'Scheduled' ? { backgroundColor: '#56C5D0', borderColor: '#56C5D0' } :
+      status === 'In Progress' ? { backgroundColor: '#56C5D0', borderColor: '#56C5D0' } :
       status === 'Pending' ? { backgroundColor: '#F58220', borderColor: '#F58220' } :
       status === 'Completed' ? {} :
       { backgroundColor: '#ED1C24', borderColor: '#ED1C24' };
@@ -96,6 +99,15 @@ const HRDashboard: React.FC = () => {
       </span>
     );
   };
+
+  const loadCandidates = useCallback(async () => {
+    try {
+      const response = await hrAPI.getDashboard();
+      setCandidates(response.data);
+    } catch (error) {
+      console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
+    }
+  }, []);
 
   const handleViewSummary = useCallback(async (candidateEmail: string) => {
     try {
@@ -120,6 +132,38 @@ const HRDashboard: React.FC = () => {
     }
   }, []);
 
+  const handleSelectCandidate = useCallback(async (candidateEmail: string) => {
+    try {
+      const response = await hrAPI.selectCandidate(candidateEmail);
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setShowSummaryModal(false);
+        // Refresh candidates list
+        await loadCandidates();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to select candidate');
+    }
+  }, [loadCandidates]);
+
+  const handleRejectCandidate = useCallback(async (candidateEmail: string) => {
+    try {
+      const response = await hrAPI.rejectCandidate(candidateEmail);
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setShowSummaryModal(false);
+        // Refresh candidates list
+        await loadCandidates();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to reject candidate');
+    }
+  }, [loadCandidates]);
+
   // NEW: Function to view report without select/reject options
   const handleViewReport = useCallback(async (candidateEmail: string, round: 'first' | 'second' = 'first') => {
     try {
@@ -142,6 +186,11 @@ const HRDashboard: React.FC = () => {
     setCandidateEmail(candidateEmail);
     setShowScheduleModal(true);
   }, []);
+
+  const handleBack = () => {
+    dispatch(clearAuth());
+    navigate('/auth/login');
+  };
 
   const FirstRoundRenderer = useMemo(() => (props: any) => {
     const firstRoundStatus = props.data.firstRoundStatus;
@@ -375,7 +424,7 @@ const HRDashboard: React.FC = () => {
       }
     },
     {
-      field: 'interviewStatus',
+      field: 'overallStatus',
       headerName: 'Status',
       flex: 0.8,
       minWidth: 100,
@@ -457,81 +506,11 @@ const HRDashboard: React.FC = () => {
     suppressSizeToFit: false
   }), []);
 
-  const loadCandidates = useCallback(async () => {
-    try {
-      const response = await hrAPI.getCandidates();
-      setCandidates(response.data);
 
-      // Load summary times for candidates with completed interviews
-      const completedCandidates = response.data.filter(
-        c => c.interviewStatus === 'Completed' && c.summaryStatus
-      );
 
-      for (const candidate of completedCandidates) {
-        try {
-          const summaryResponse = await hrAPI.getInterviewSummary(candidate.candidateEmail);
-          if (summaryResponse.data && summaryResponse.data.summaryTime) {
-            setSummaryTimes(prev => ({
-              ...prev,
-              [candidate.candidateEmail]: summaryResponse.data.summaryTime
-            }));
-          }
-        } catch (error) {
-          console.error(`Failed to load summary time for ${candidate.candidateEmail}`);
-        }
-      }
-    } catch (error) {
-      console.error('Operation failed:', error instanceof Error ? error.message : 'Unknown error');
-    }
-  }, []);
 
-  const validateCandidateAction = (candidateEmail: string, interviewStatus: string) => {
-    if (interviewStatus === 'Scheduled') {
-      toast.error('Interview is scheduled. Please wait for candidate to complete the interview before making a decision.');
-      return false;
-    }
-    return true;
-  };
 
-  const handleSelectCandidate = async (candidateEmail: string) => {
-    const candidate = candidates.find(c => c.candidateEmail === candidateEmail);
-    if (!validateCandidateAction(candidateEmail, candidate?.interviewStatus)) return;
 
-    if (!window.confirm(`Are you sure you want to SELECT candidate ${candidateEmail}?`)) return;
-
-    try {
-      const response = await hrAPI.selectCandidate(candidateEmail);
-      if (response.data.success) {
-        toast.success(response.data.message);
-        await loadCandidates();
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to select candidate');
-    }
-    setShowSummaryModal(false);
-  };
-
-  const handleRejectCandidate = async (candidateEmail: string) => {
-    const candidate = candidates.find(c => c.candidateEmail === candidateEmail);
-    if (!validateCandidateAction(candidateEmail, candidate?.interviewStatus)) return;
-
-    if (!window.confirm(`Are you sure you want to REJECT candidate ${candidateEmail}?`)) return;
-
-    try {
-      const response = await hrAPI.rejectCandidate(candidateEmail);
-      if (response.data.success) {
-        toast.success(response.data.message);
-        await loadCandidates();
-      } else {
-        toast.error(response.data.message);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to reject candidate');
-    }
-    setShowSummaryModal(false);
-  };
 
   useEffect(() => {
     loadCandidates();

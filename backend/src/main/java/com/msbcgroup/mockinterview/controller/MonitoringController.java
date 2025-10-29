@@ -1,16 +1,11 @@
 package com.msbcgroup.mockinterview.controller;
 
-import com.msbcgroup.mockinterview.model.MonitoringEvent;
-import com.msbcgroup.mockinterview.repository.MonitoringEventRepository;
+import com.msbcgroup.mockinterview.service.MonitoringService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/monitoring")
@@ -18,50 +13,15 @@ import java.util.stream.Collectors;
 public class MonitoringController {
 
     @Autowired
-    private MonitoringEventRepository eventRepository;
+    private MonitoringService monitoringService;
 
     /**
      * Log a monitoring event from frontend
      */
     @PostMapping("/log-event")
     public ResponseEntity<String> logEvent(@RequestBody Map<String, Object> eventData) {
-        try {
-            System.out.println("Received log-event request: " + eventData);
-            MonitoringEvent event = new MonitoringEvent();
-
-            // Required fields
-            event.setSessionId((String) eventData.get("sessionId"));
-            event.setCandidateEmail((String) eventData.get("candidateEmail"));
-            event.setDescription((String) eventData.getOrDefault("description", ""));
-            event.setMetadata((String) eventData.getOrDefault("metadata", ""));
-
-
-
-            // Validate and set EventType
-            String typeStr = (String) eventData.get("eventType");
-            System.out.println(typeStr);
-
-
-
-            try {
-                event.setEventType(MonitoringEvent.EventType.valueOf(typeStr));
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest().body("Invalid eventType: " + typeStr);
-            }
-
-            // Timestamp is automatically set in constructor
-            MonitoringEvent savedEvent =eventRepository.save(event);
-
-            if ("INTERVIEW_END".equals(typeStr)) {
-                List<MonitoringEvent> allEvents = eventRepository.findAllEventsBySessionId(event.getSessionId());
-
-            }
-
-            return ResponseEntity.ok("Event logged successfully");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Error logging event: " + e.getMessage());
-        }
+        monitoringService.logEvent(eventData);
+        return ResponseEntity.ok("Event logged successfully");
     }
 
     /**

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { interviewAPI } from '../services/api'; // Assuming you add interviewAPI to your api.ts
 import toast, { Toaster } from 'react-hot-toast';
+import AIVoiceMonitor from '../Components/AIVoiceMonitor';
 
 // Define the types for our data
 interface Question {
@@ -24,6 +25,7 @@ const ExamPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voiceCalibrated, setVoiceCalibrated] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -120,6 +122,28 @@ const ExamPage: React.FC = () => {
   return (
     <div className="bg-slate-100 min-h-screen p-8">
       <Toaster position="top-center" />
+      
+      {/* AI Voice Monitor */}
+      <div className="max-w-4xl mx-auto mb-4">
+        <AIVoiceMonitor
+          sessionId={sessionId || 'unknown'}
+          candidateEmail="candidate@interview.com"
+          onCalibrationComplete={() => {
+            setVoiceCalibrated(true);
+            console.log('Voice calibration completed');
+          }}
+        />
+      </div>
+      
+      {/* Calibration Warning */}
+      {!voiceCalibrated && (
+        <div className="max-w-4xl mx-auto mb-4">
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            Please speak naturally for voice calibration before starting the interview.
+          </div>
+        </div>
+      )}
+      
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold text-slate-800 mb-6 border-b pb-4">Technical Interview</h1>
         <form onSubmit={handleSubmit}>
