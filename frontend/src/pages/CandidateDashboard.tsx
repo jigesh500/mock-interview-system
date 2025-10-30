@@ -79,7 +79,7 @@ const CandidateDashboard: React.FC = () => {
     try {
       const response = await candidateAPI.joinInterview();
       const { teamsUrl, sessionId: newSessionId } = response.data;
-      window.open(examUrl, '_blank', 'width=2100,height=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
+      window.open(examUrl, '_blank', 'width=2100,minHeight=1200,toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no');
       setSessionId(newSessionId);
     } catch (error) {
       console.error('Error:', error);

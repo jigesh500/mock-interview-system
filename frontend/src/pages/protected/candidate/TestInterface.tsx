@@ -52,13 +52,25 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [codeOutput, setCodeOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
 
+
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     console.warn('Security violation:', type, message);
-  }, []);
+     if (type === 'UNKNOWN_VOICE_DETECTED') {
+        toast.error(`Voice Security Alert: ${message}`, {
+          duration: 5000,
+          icon: '🔴'
+        });
+      }
+    }, []);
 
 
 
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
+  const getJavaClassName = (code: string): string | null => {
+    // This regex looks for "public class SomeClassName"
+    const match = code.match(/public\s+class\s+([a-zA-Z_$][\w$]*)/);
+    return match ? match[1] : null;
+  };
 
   // 🚫 Prevent refresh, back navigation, and reload shortcuts
   useEffect(() => {
@@ -180,6 +192,24 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
 
+
+useEffect(() => {
+    // Reset code output when navigating to a new coding question
+    if (questions[currentQuestionIndex]?.type === "Coding") {
+      setCodeOutput('');
+    }
+  }, [currentQuestionIndex, questions]);
+ useEffect(() => {
+    const currentQuestion = questions[currentQuestionIndex];
+    const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "" : "";
+
+    if (currentQuestion?.type === "Coding" && currentLanguage === 'java' && !selectedAnswer.trim()) {
+      const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
+      dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+    }
+  }, [currentLanguage, currentQuestionIndex, questions, answers, dispatch]);
+
+
   const handleEditorDidMount = (editor: any, monaco: any) => {
     const showDisabledToast = (action: string) => {
       toast.error(`${action} is disabled during the test.`);
@@ -244,7 +274,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-  const selectedAnswer = answers?.[currentQuestion.id] ?? "";
+      const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "":"";
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -268,12 +298,21 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     if (!selectedAnswer.trim()) {
       toast.error('Please write some code first');
       return;
+    }//Handle Java code execution
+  if (currentLanguage === 'java') {
+    const className = getJavaClassName(selectedAnswer);
+    if (!className) {
+      toast.error('For Java, please wrap your code in a "public class YourClassName { ... }" block.');
+      return;
     }
+  }
 
     setIsExecuting(true);
     setCodeOutput('Executing...');
 
-    const result = await executeCode(selectedAnswer, currentLanguage);
+    const className = currentLanguage === 'java' ? getJavaClassName(selectedAnswer) : undefined;
+
+   const result = await executeCode(selectedAnswer, currentLanguage, className);
 
     if (result.error) {
       setCodeOutput(`Error: ${result.error}`);
@@ -303,7 +342,8 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
               />
               <VoiceMonitorIndicator
                 sessionId={sessionId || ''}
-                candidateEmail="candidate@interview.com"
+                candidateEmail="anonymous@interview.com"
+                onViolation={handleSecurityViolation}
               />
             </Box>
           </Box>
@@ -317,7 +357,14 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         {/* Main Content */}
         <Box className="flex-1 p-4">
           <Card className="h-full bg-white shadow-lg">
-            <CardContent className="p-6">
+            <CardContent
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    p: 3, // Using sx for padding to be consistent
+                  }}
+                >
               {/* Header with Circular Timer */}
               <Box className="mb-4 flex justify-between items-center">
                 <Typography variant="h6" className="text-gray-600">
@@ -367,10 +414,10 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
               </Box>
 
               {/* Question Content */}
-              <Box className="mb-6">
-                <Typography variant="h6" className="mb-4 font-semibold">
-                  {currentQuestion.question}
-                </Typography>
+              <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, pr: 1 }}>
+                      <Typography variant="h6" className="mb-4 font-semibold">
+                        {currentQuestion.question}
+                      </Typography>
 
                 {/* MCQ Questions */}
                 {currentQuestion.type === "MCQ" && currentQuestion.options && (
