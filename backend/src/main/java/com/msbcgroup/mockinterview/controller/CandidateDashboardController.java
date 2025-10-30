@@ -21,32 +21,22 @@ public class CandidateDashboardController {
     @Autowired
     private CandidateService candidateService;
 
-    /**
-     * Public endpoint for a candidate to get interview info using a session token.
-     */
+
         @GetMapping("/portal-info/{sessionId}")
     public ResponseEntity<Map<String, Object>> getInterviewInfoBySession(@PathVariable String sessionId) {
-        // Find the session by its ID (the token from the magic link)
+        // Find the session by its ID
         InterviewSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired session token."));
 
         // Use the email from the session to find the candidate's profile
         CandidateProfile profile = candidateService.findCandidateByEmail(session.getCandidateEmail());
 
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>();fffff
         response.put("candidateName", profile.getCandidateName());
         response.put("positionApplied", profile.getPositionApplied());
         response.put("message", "Welcome! Please press 'Start' when you are ready to begin the interview.");
 
         return ResponseEntity.ok(response);
     }
-
-    /**
-     * This endpoint is now handled by the public /interview/start-with-session/{sessionId}
-     * in InterviewController. The old /join-interview can be deprecated or removed if no longer used
-     * by any other part of the application.
-     *
-     * For clarity, I am leaving the old endpoints below but they are not used in the new magic link flow.
-     */
 
 }

@@ -44,9 +44,6 @@ public class HRController {
         return ResponseEntity.ok(candidateService.getAllCandidatesWithStatus());
     }
 
-
-
-
     @PostMapping("/candidate/{candidateEmail}/round/select")
     public ResponseEntity<Map<String, Object>> selectCandidate(
             @PathVariable String candidateEmail,

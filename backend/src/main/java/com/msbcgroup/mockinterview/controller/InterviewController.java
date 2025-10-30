@@ -39,43 +39,6 @@ public class InterviewController {
         this.chatClient = chatClient.build();
     }
 
-//    @GetMapping("/start")
-//    public ResponseEntity<Map<String, Object>> startInterview(@AuthenticationPrincipal OAuth2User principal) throws JsonProcessingException {
-//
-//        if (principal == null) {
-//            Map<String, Object> errorResponse = new HashMap<>();
-//            errorResponse.put("error", "User not authenticated");
-//            return ResponseEntity.status(401).body(errorResponse);
-//        }
-//
-//        String email = principal.getAttribute("email");
-//
-//
-//        String sessionId = UUID.randomUUID().toString();
-//
-//
-//        CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(email)
-//                .orElseThrow(() -> new RuntimeException("CandidateProfile not found for email: " + email));
-//
-//        List<Question> questions = generateQuestionsFromProfile(profile);
-//        // Store complete questions as JSON
-//        ObjectMapper mapper = new ObjectMapper();
-//        String questionsJson = mapper.writeValueAsString(questions);
-//
-//        InterviewSession session = new InterviewSession();
-//        session.setSessionId(sessionId);
-//        session.setCandidateEmail(email);
-//        session.setQuestionsJson(questionsJson);
-//        session.setCompleted(false);
-//        sessionRepository.save(session);
-//
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("questions", questions);
-//        response.put("sessionId", sessionId); // Use sessionId instead of userId
-//
-//        return ResponseEntity.ok(response);
-//    }
-
     @PostMapping("/submit-answers")
     public ResponseEntity<Map<String, Object>> submitAnswers(
             @RequestBody Map<String, Object> requestBody) throws JsonProcessingException {
