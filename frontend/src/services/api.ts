@@ -7,6 +7,18 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Add response interceptor to handle 401 without redirecting
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Don't redirect, just return the error
+      console.log('Unauthorized request, but not redirecting');
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth APIs
 export const authAPI = {
   getCurrentUser: () => api.get('/api/auth/user'),

@@ -29,18 +29,24 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                        .invalidSessionUrl("/oauth2/authorization/auth0") // redirect if session invalid
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/start-interview/**").permitAll()
                         .requestMatchers("/candidate/portal-info/**").permitAll()
                         .requestMatchers("/interview/**").permitAll()
                         .requestMatchers("/api/monitoring/**").permitAll()
-                        .requestMatchers("/hr/**", "/interview/**", "/candidate/**", "/api/auth/**").authenticated()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/hr/**", "/candidate/**", "/api/auth/**").authenticated()
+                        .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .defaultSuccessUrl("http://localhost:5173/auth/login", true)
+                        .failureUrl("http://localhost:5173/auth/login")
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.getWriter().write("{\"error\":\"Unauthorized\"}");
+                        })
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")

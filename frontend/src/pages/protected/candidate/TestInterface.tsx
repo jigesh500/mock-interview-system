@@ -32,8 +32,8 @@ import {
 } from '../../../redux/reducers/testSlice';
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
-
-import VoiceMonitorIndicator from '../../../Components/VoiceMonitorIndicator';
+import PreInterviewSetup from '../../../Components/PreInterviewSetup';
+import InterviewVoiceMonitor from '../../../Components/InterviewVoiceMonitor';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 interface StartTestProps {
@@ -51,6 +51,9 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [codeOutput, setCodeOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [voiceProfile, setVoiceProfile] = useState(null);
+  const [examSubmitted, setExamSubmitted] = useState(false);
 
 
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
@@ -65,7 +68,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
 
 
 
-  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId, null);
+  const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId);
   const getJavaClassName = (code: string): string | null => {
     // This regex looks for "public class SomeClassName"
     const match = code.match(/public\s+class\s+([a-zA-Z_$][\w$]*)/);
@@ -76,6 +79,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   useEffect(() => {
     // Warn before leaving the page (refresh, close, etc.)
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (examSubmitted) return; // Don't show alert if exam is submitted
       event.preventDefault();
       event.returnValue = "Are you sure you want to leave? Your interview progress will be lost.";
     };
@@ -109,7 +113,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", disableKeys);
     };
-  }, []);
+  }, [examSubmitted]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
@@ -125,6 +129,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
       const response = await interviewAPI.submitAnswers(answersPayload, sessionId);
 
       if (response.data.status === "success") {
+        setExamSubmitted(true); // Mark exam as submitted
         deactivateSecurity();
         (window as any).deactivateCameraSecurity?.();
         try {
@@ -134,7 +139,6 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
             credentials: 'include',
             body: JSON.stringify({
               sessionId,
-              candidateEmail: 'anonymous@interview.com',
               eventType: 'INTERVIEW_END',
               description: 'Interview completed successfully',
               metadata: JSON.stringify({ submittedAt: new Date().toISOString() })
@@ -237,26 +241,21 @@ useEffect(() => {
     });
   };
 
-  if (!cameraReady) {
+
+
+  // Show pre-interview setup if not completed
+  if (!setupComplete) {
     return (
       <>
         <Toaster position="top-center" />
-        <Box className="flex justify-center items-center h-screen">
-          <Card className="p-8 text-center">
-            <Typography variant="h6" className="mb-4">
-              📷 Camera Permission Required
-            </Typography>
-            <Typography className="mb-4">
-              Please allow camera access to start your interview
-            </Typography>
-            <div className="space-y-4">
-              <CameraMonitor
-                sessionId={sessionId || ''}
-                onCameraReady={setCameraReady}
-              />
-            </div>
-          </Card>
-        </Box>
+        <PreInterviewSetup
+          sessionId={sessionId || ''}
+          onSetupComplete={(profile) => {
+            setVoiceProfile(profile);
+            setSetupComplete(true);
+            setCameraReady(true);
+          }}
+        />
       </>
     );
   }
@@ -340,11 +339,13 @@ useEffect(() => {
                   (window as any).deactivateCameraSecurity?.();
                 }}
               />
-              <VoiceMonitorIndicator
-                sessionId={sessionId || ''}
-                candidateEmail="anonymous@interview.com"
-                onViolation={handleSecurityViolation}
-              />
+              {voiceProfile && (
+                <InterviewVoiceMonitor
+                  sessionId={sessionId || ''}
+                  voiceProfile={voiceProfile}
+                  onViolation={handleSecurityViolation}
+                />
+              )}
             </Box>
           </Box>
 

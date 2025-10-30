@@ -1,7 +1,7 @@
 // src/services/codeExecution.ts
 
 const JUDGE0_API_URL = 'https://judge0-ce.p.rapidapi.com';
-const API_KEY = '202a26cab0msh57f8c26da186112p1253f4jsn3b5a757df470'; // Be careful with API keys in production
+const API_KEY = import.meta.env.VITE_JUDGE0_API_KEY || ''; // Use environment variable
 
 const languageMap: { [key: string]: number } = {
   'javascript': 63,

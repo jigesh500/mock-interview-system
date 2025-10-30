@@ -28,7 +28,6 @@ const CameraMonitor: React.FC<CameraMonitorProps> = ({ sessionId, onInterviewEnd
         credentials: 'include',
         body: JSON.stringify({
           sessionId,
-          candidateEmail: 'anonymous@interview.com',
           eventType: type,
           description: message,
           metadata: JSON.stringify({ timestamp: new Date().toISOString() })
@@ -87,7 +86,6 @@ useEffect(() => {
           credentials: 'include',
           body: JSON.stringify({
             sessionId,
-            candidateEmail: 'anonymous@interview.com',
             eventType: 'INTERVIEW_START',
             description: 'Interview monitoring started',
             metadata: JSON.stringify({ timestamp: new Date().toISOString() }) // Use 'timestamp' for consistency
@@ -185,7 +183,6 @@ useEffect(() => {
         if (currentEventType !== lastEventType) {
           const eventData = {
             sessionId,
-            candidateEmail: 'anonymous@interview.com',
             eventType: currentEventType,
             description: currentStatus,
             metadata: JSON.stringify({

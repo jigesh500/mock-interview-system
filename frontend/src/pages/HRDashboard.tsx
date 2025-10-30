@@ -16,6 +16,7 @@ import ViewSummaryModal from '../Components/hr/ViewSummaryModal';
 import { useAppSelector } from '../redux/hooks';
 import { FaCopy } from 'react-icons/fa';
 
+
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -517,7 +518,19 @@ const HRDashboard: React.FC = () => {
     const intervalId = setInterval(() => {
       loadCandidates();
     }, 30000);
-    return () => clearInterval(intervalId);
+    
+    // Prevent browser back button
+    const preventBack = () => {
+      window.history.pushState(null, '', window.location.pathname);
+    };
+    
+    window.history.pushState(null, '', window.location.pathname);
+    window.addEventListener('popstate', preventBack);
+    
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('popstate', preventBack);
+    };
   }, [loadCandidates]);
 
 

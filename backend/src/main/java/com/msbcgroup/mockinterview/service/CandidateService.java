@@ -1,10 +1,13 @@
 package com.msbcgroup.mockinterview.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,13 +23,22 @@ public class CandidateService {
     
     @Autowired
     private InterviewMeetingRepository meetingRepository;
+    
+    @Autowired
+    private ResumeParsingService resumeParsingService;
+    
+    @Autowired
+    private FileProcessingService fileProcessingService;
+    
+    @Autowired
+    private InterviewSessionRepository sessionRepository;
 
     public List<Map<String, Object>> getAllCandidatesWithStatus() {
         List<CandidateProfile> candidates = candidateProfileRepository.findAll();
         return candidates.stream().map(this::buildCandidateWithStatus).collect(Collectors.toList());
     }
 
-    public CandidateProfile selectCandidateForNextRound(String candidateEmail, String hrEmail) {
+    public Map<String, Object> selectCandidateForNextRound(String candidateEmail, String hrEmail) {
         CandidateProfile candidate = findCandidateByEmail(candidateEmail);
         validateInterviewCompletion(candidateEmail);
         
@@ -46,10 +58,18 @@ public class CandidateService {
         
         candidate.setLastDecisionTimestamp(LocalDateTime.now());
         candidate.setDecisionMadeBy(hrEmail);
-        return candidateProfileRepository.save(candidate);
+        CandidateProfile savedCandidate = candidateProfileRepository.save(candidate);
+        
+        String message = savedCandidate.getCurrentRound() == 2 ? "Candidate promoted to Round 2" : "Candidate selected for final";
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", message);
+        response.put("candidateData", buildCandidateResponse(savedCandidate));
+        return response;
     }
 
-    public CandidateProfile rejectCandidate(String candidateEmail, String hrEmail) {
+    public Map<String, Object> rejectCandidate(String candidateEmail, String hrEmail) {
         CandidateProfile candidate = findCandidateByEmail(candidateEmail);
         validateInterviewCompletion(candidateEmail);
         
@@ -68,15 +88,33 @@ public class CandidateService {
         
         candidate.setLastDecisionTimestamp(LocalDateTime.now());
         candidate.setDecisionMadeBy(hrEmail);
-        return candidateProfileRepository.save(candidate);
+        CandidateProfile savedCandidate = candidateProfileRepository.save(candidate);
+        
+        String message = savedCandidate.getFirstRoundStatus() == RoundStatus.FAIL ? 
+                "Candidate rejected in Round 1" : "Candidate rejected in Round 2";
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", message);
+        response.put("candidateData", buildCandidateResponse(savedCandidate));
+        return response;
     }
 
-    public CandidateProfile addCandidate(CandidateProfile candidate) {
+    public Map<String, Object> addCandidate(CandidateProfile candidate) {
+        if (candidate == null) {
+            throw new IllegalArgumentException("Candidate cannot be null");
+        }
+        
         Optional<CandidateProfile> existing = candidateProfileRepository.findByCandidateEmail(candidate.getCandidateEmail());
         if (existing.isPresent()) {
             throw new RuntimeException("Candidate with this email already exists");
         }
-        return candidateProfileRepository.save(candidate);
+        
+        CandidateProfile saved = candidateProfileRepository.save(candidate);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", saved);
+        return response;
     }
 
     public CandidateProfile findCandidateByEmail(String email) {
@@ -88,11 +126,15 @@ public class CandidateService {
         return candidateProfileRepository.save(candidate);
     }
 
-    public void deleteCandidate(String name) {
+    public Map<String, String> deleteCandidate(String name) {
         if (!candidateProfileRepository.findByCandidateName(name).isPresent()) {
             throw new RuntimeException("Candidate not found");
         }
         candidateProfileRepository.deleteByCandidateName(name);
+        
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Candidate deleted successfully");
+        return response;
     }
 
     private Map<String, Object> buildCandidateWithStatus(CandidateProfile candidate) {
@@ -156,6 +198,91 @@ public class CandidateService {
         }
     }
 
+    public Map<String, Object> updateCandidateResume(String candidateEmail, MultipartFile file) throws IOException {
+        CandidateProfile candidate = findCandidateByEmail(candidateEmail);
+        
+        String resumeText = fileProcessingService.extractTextFromFile(file);
+        JsonNode parsedData = resumeParsingService.parseResume(resumeText);
+
+        candidate.setCandidateName(parsedData.get("name").asText());
+        candidate.setPositionApplied(parsedData.get("position").asText());
+        candidate.setExperienceYears(parsedData.get("experience").asInt());
+        candidate.setSkills(parsedData.get("skills").asText());
+        candidate.setPhoneNumber(parsedData.get("phone").asText());
+        candidate.setLocation(parsedData.get("location").asText());
+        candidate.setDescription(parsedData.get("description").asText());
+        CandidateProfile updatedCandidate = updateCandidate(candidate);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", updatedCandidate);
+        return response;
+    }
+    
+    public Map<String, Object> parseAndValidateResume(MultipartFile file) throws IOException {
+        String resumeText = fileProcessingService.extractTextFromFile(file);
+        JsonNode parsedData = resumeParsingService.parseResume(resumeText);
+        
+        String email = parsedData.get("email").asText();
+        if (email != null && !email.isEmpty()) {
+            try {
+                findCandidateByEmail(email);
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("error", "Candidate with email " + email + " already exists");
+                return response;
+            } catch (RuntimeException e) {
+                // Candidate not found, continue
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", parsedData);
+        return response;
+    }
+    
+    private Map<String, Object> buildCandidateResponse(CandidateProfile candidate) {
+        Map<String, Object> candidateData = new HashMap<>();
+        candidateData.put("candidateEmail", candidate.getCandidateEmail());
+        candidateData.put("candidateName", candidate.getCandidateName());
+        candidateData.put("firstRoundStatus", candidate.getFirstRoundStatus());
+        candidateData.put("secondRoundStatus", candidate.getSecondRoundStatus());
+        candidateData.put("currentRound", candidate.getCurrentRound());
+        candidateData.put("interviewStatus", candidate.getInterviewStatus());
+        candidateData.put("overallStatus", candidate.getOverallStatus());
+        candidateData.put("lastDecisionTimestamp", candidate.getLastDecisionTimestamp());
+        candidateData.put("decisionMadeBy", candidate.getDecisionMadeBy());
+        return candidateData;
+    }
+    
+    public Map<String, Object> getInterviewInfoBySession(String sessionId) {
+        InterviewSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired session token."));
+
+        CandidateProfile profile = findCandidateByEmail(session.getCandidateEmail());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("candidateName", profile.getCandidateName());
+        response.put("positionApplied", profile.getPositionApplied());
+        response.put("message", "Welcome! Please press 'Start' when you are ready to begin the interview.");
+        return response;
+    }
+    
+    public Map<String, String> scheduleSecondRound(ScheduleRequest scheduleRequest) {
+        CandidateProfile candidate = findCandidateByEmail(scheduleRequest.getCandidateEmail());
+        
+        candidate.setSecondRoundInterviewerEmail(scheduleRequest.getInterviewerEmail());
+        candidate.setSecondRoundInterviewerName(scheduleRequest.getInterviewerName());
+        candidate.setSecondRoundStatus(RoundStatus.SCHEDULED);
+        
+        updateCandidate(candidate);
+        
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Second round scheduled successfully for " + candidate.getCandidateName());
+        return response;
+    }
+    
     private void validateInterviewCompletion(String candidateEmail) {
         Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidateEmail);
         if (!interviewResult.isPresent() || interviewResult.get().getAttempts() < 1) {
