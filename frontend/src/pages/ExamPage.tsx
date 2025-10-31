@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { interviewAPI } from '../services/api'; // Assuming you add interviewAPI to your api.ts
 import toast, { Toaster } from 'react-hot-toast';
-import AIVoiceMonitor from '../Components/AIVoiceMonitor';
+// import AIVoiceMonitor from '../Components/AIVoiceMonitor';
 
 // Define the types for our data
 interface Question {
@@ -86,7 +86,6 @@ const ExamPage: React.FC = () => {
               credentials: 'include',
               body: JSON.stringify({
                 sessionId,
-                candidateEmail: 'anonymous@interview.com', // Or get from props/state
                 eventType: 'INTERVIEW_END',
                 description: 'Interview completed successfully',
                 metadata: JSON.stringify({ submittedAt: new Date().toISOString() })

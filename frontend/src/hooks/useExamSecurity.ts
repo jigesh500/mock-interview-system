@@ -11,8 +11,7 @@ interface UseExamSecurityReturn {
 
 export const useExamSecurity = (
   onViolation?: (type: ViolationType, message: string) => void,
-  sessionId?: string,
-  candidateEmail?: string
+  sessionId?: string
 ): UseExamSecurityReturn => {
   const tabSwitchViolations = useRef(0);
   const tabMonitoringActive = useRef(false);
@@ -93,6 +92,28 @@ export const useExamSecurity = (
 
         console.log(`Tab switch #${newCount} detected`);
 
+        // Log to database
+        if (sessionId) {
+          try {
+            await fetch('http://localhost:8081/api/monitoring/log-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                sessionId,
+                eventType: 'TAB_SWITCH',
+                description: `Tab switching detected (violation #${newCount})`,
+                metadata: JSON.stringify({
+                  violationCount: newCount,
+                  timestamp: new Date().toISOString()
+                })
+              })
+            });
+          } catch (error) {
+            console.error('Failed to log tab switch violation:', error);
+          }
+        }
+
         handleViolation('TAB_SWITCH', `Tab switching detected (${newCount})`);
 
         if (newCount === 1) {
@@ -153,7 +174,7 @@ export const useExamSecurity = (
       window.removeEventListener('resize', handleResize);
       document.head.removeChild(style);
     };
-  }, [handleViolation, sessionId, candidateEmail]);
+  }, [handleViolation, sessionId]);
 
   const activateSecurity = useCallback(() => {
     console.log('Exam security activated - silent mode');

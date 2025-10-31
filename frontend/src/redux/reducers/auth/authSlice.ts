@@ -33,8 +33,8 @@ export const initiateAuth0Login = createAsyncThunk(
   'auth/initiateAuth0Login',
   async (_, { rejectWithValue }) => {
     try {
-     window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
-          return null;
+      window.location.href = 'http://localhost:8081/oauth2/authorization/auth0';
+      return null;
     } catch (err: any) {
       return rejectWithValue('Failed to initiate login');
     }
@@ -45,8 +45,8 @@ export const checkAuthStatus = createAsyncThunk(
   'auth/checkAuthStatus',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get('http://localhost:8081/api/auth/user', { 
-        withCredentials: true 
+      const response = await axios.get('http://localhost:8081/api/auth/user', {
+        withCredentials: true
       });
   console.log('Auth Status Response:', response.data);
       return response.data; // Should return { user: User, authenticated: boolean }
@@ -114,12 +114,7 @@ clearAuth(state) {
         if (action.payload.authenticated) {
           state.user = action.payload.user;
           state.isAuthenticated = true;
-          // Role-based redirect
-          if (action.payload.user.role === 'hr') {
-            state.redirectUrl = '/hr/dashboard';
-          } else if (action.payload.user.role === 'candidate') {
-            state.redirectUrl = '/interview/start';
-          }
+          // Don't set redirectUrl here - let components handle navigation
         }
       })
       .addCase(checkAuthStatus.rejected, (state, action) => {

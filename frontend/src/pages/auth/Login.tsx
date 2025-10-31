@@ -3,20 +3,21 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const Login = () => {
-  const { login, isAuthenticated, user, loading } = useAuth();
+  const { login, isAuthenticated, user, loading, checkAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    // Mark that we've checked auth status
-    if (!loading) {
+    // Only check auth on login page load
+    if (!hasCheckedAuth) {
+      checkAuth();
       setHasCheckedAuth(true);
     }
+  }, [checkAuth, hasCheckedAuth]);
 
-    // Only redirect if authenticated and we've completed the auth check
-    if (isAuthenticated && user && !loading && hasCheckedAuth) {
-      // Don't redirect if we came from a logout (state will be cleared)
+  useEffect(() => {
+    if (isAuthenticated && user && !loading) {
       const fromLogout = location.state?.fromLogout;
       if (!fromLogout) {
         if (user.role === 'hr') {
@@ -28,7 +29,7 @@ const Login = () => {
         }
       }
     }
-  }, [isAuthenticated, user, loading, navigate, location.state, hasCheckedAuth]);
+  }, [isAuthenticated, user, loading, navigate, location.state]);
 
   const handleLogin = () => {
     login();
