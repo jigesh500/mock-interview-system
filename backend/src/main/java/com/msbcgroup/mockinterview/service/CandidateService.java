@@ -161,6 +161,16 @@ public class CandidateService {
 
         Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidate.getCandidateEmail());
         boolean hasSummary = interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1;
+        
+        // Debug logging
+        System.out.println("Candidate: " + candidate.getCandidateEmail());
+        System.out.println("InterviewResult present: " + interviewResult.isPresent());
+        if (interviewResult.isPresent()) {
+            System.out.println("Attempts: " + interviewResult.get().getAttempts());
+            System.out.println("Summary present: " + (interviewResult.get().getSummary() != null));
+        }
+        System.out.println("HasSummary: " + hasSummary);
+        
         candidateData.put("summaryStatus", hasSummary);
 
         return candidateData;

@@ -447,7 +447,20 @@ useEffect(() => {
                     <Box className="flex justify-between items-center p-2 bg-gray-100 border-b">
                       <select
                         value={currentLanguage}
-                        onChange={(e) => setCurrentLanguage(e.target.value)}
+                        onChange={(e) => {
+                          const newLanguage = e.target.value;
+                          setCurrentLanguage(newLanguage);
+                          
+                          // Clear existing code when switching languages
+                          if (newLanguage === 'java') {
+                            // Set Java template only for Java
+                            const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
+                            dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+                          } else {
+                            // Clear code for other languages
+                            dispatch(saveAnswer({ questionId: currentQuestion.id, answer: "" }));
+                          }
+                        }}
                         className="px-2 py-1 border rounded"
                       >
                         <option value="javascript">JavaScript</option>

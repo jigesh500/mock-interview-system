@@ -28,6 +28,7 @@ public class InterviewResult {
     public InterviewResult(String candidateEmail, InterviewSummary summary) {
         this.candidateEmail = candidateEmail;
         this.summary = summary;
+        this.attempts = 1;
         this.submittedAt = LocalDateTime.now();
     }
 

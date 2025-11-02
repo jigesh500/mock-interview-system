@@ -225,6 +225,8 @@ public class InterviewService {
             interviewResultRepository.save(existingResult);
         } else {
             InterviewResult result = new InterviewResult(email, summary);
+            result.setAttempts(1);
+            result.setSubmittedAt(LocalDateTime.now());
             interviewResultRepository.save(result);
         }
 

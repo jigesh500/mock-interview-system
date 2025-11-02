@@ -13,11 +13,18 @@ const languageMap: { [key: string]: number } = {
 
 // ✅ UPDATED: Function signature now includes an optional 'className' parameter.
 export const executeCode = async (code: string, language: string, className?: string, input: string = '') => {
-  // NOTE: The 'className' is not directly used in the API call.
-  // The Judge0 API infers the filename from the 'public class' name within the source code.
-  // We include it in the signature for clarity and to match the function call from the component.
-
   try {
+    const requestBody: any = {
+      source_code: code,
+      language_id: languageMap[language] || 63,
+      stdin: input
+    };
+
+    // For Java, set the filename to match the class name
+    if (language === 'java' && className) {
+      requestBody.filename = `${className}.java`;
+    }
+
     const response = await fetch(`${JUDGE0_API_URL}/submissions?wait=true`, {
       method: 'POST',
       headers: {
@@ -25,11 +32,7 @@ export const executeCode = async (code: string, language: string, className?: st
         'X-RapidAPI-Key': API_KEY,
         'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
       },
-      body: JSON.stringify({
-        source_code: code,
-        language_id: languageMap[language] || 63,
-        stdin: input
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const result = await response.json();
