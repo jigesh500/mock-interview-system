@@ -49,12 +49,14 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
     try {
       setStatus('initializing');
 
-      // Request microphone access
+      // Request microphone access - optimized for multiple voice detection
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          echoCancellation: false,  // Disabled for multiple voice detection
+          noiseSuppression: false,  // Disabled for multiple voice detection
+          autoGainControl: false,   // Disabled for multiple voice detection
+          channelCount: 2,
+          sampleRate: 44100
         }
       });
       streamRef.current = stream;
@@ -64,8 +66,8 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
       const analyser = audioContext.createAnalyser();
       const source = audioContext.createMediaStreamSource(stream);
 
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.fftSize = 4096;              // Increased for better detection
+      analyser.smoothingTimeConstant = 0.3; // Reduced for responsiveness
       source.connect(analyser);
 
       audioContextRef.current = audioContext;
@@ -297,6 +299,172 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
     return [spectralCentroid, rolloff];
   };
 
+  // Enhanced multiple voice detection with VAD and spectral analysis
+  const detectMultipleVoices = (dataArray: Uint8Array): { count: number; confidence: number; details: string } => {
+    const sampleRate = audioContextRef.current?.sampleRate || 44100;
+    const binSize = sampleRate / dataArray.length;
+    
+    // Voice Activity Detection - check if there's any speech
+    const totalEnergy = dataArray.reduce((sum, val) => sum + val, 0);
+    const avgEnergy = totalEnergy / dataArray.length;
+    
+    if (avgEnergy < 15) {
+      return { count: 0, confidence: 0, details: 'No voice activity detected' };
+    }
+
+    // Analyze different frequency bands for voice characteristics
+    const bands = [
+      { name: 'Low Male', min: 80, max: 180, energy: 0, peaks: 0 },
+      { name: 'High Male', min: 180, max: 250, energy: 0, peaks: 0 },
+      { name: 'Low Female', min: 180, max: 300, energy: 0, peaks: 0 },
+      { name: 'High Female', min: 300, max: 450, energy: 0, peaks: 0 },
+      { name: 'Formants', min: 800, max: 3000, energy: 0, peaks: 0 }
+    ];
+
+    // Calculate energy and peaks for each band
+    bands.forEach(band => {
+      const startBin = Math.floor(band.min / binSize);
+      const endBin = Math.floor(band.max / binSize);
+      const bandData = dataArray.slice(startBin, endBin);
+      
+      band.energy = bandData.reduce((sum, val) => sum + val, 0) / bandData.length;
+      
+      // Count significant peaks in this band
+      const threshold = band.energy * 0.7;
+      for (let i = 1; i < bandData.length - 1; i++) {
+        if (bandData[i] > threshold && 
+            bandData[i] > bandData[i-1] && 
+            bandData[i] > bandData[i+1]) {
+          band.peaks++;
+        }
+      }
+    });
+
+    // Detect multiple voice sources
+    let voiceCount = 0;
+    let activeRegions: string[] = [];
+    
+    // Check for simultaneous activity in different frequency ranges
+    const maleActivity = (bands[0].energy > 25 || bands[1].energy > 25) && (bands[0].peaks > 1 || bands[1].peaks > 1);
+    const femaleActivity = (bands[2].energy > 20 || bands[3].energy > 20) && (bands[2].peaks > 1 || bands[3].peaks > 1);
+    const formantActivity = bands[4].energy > 30 && bands[4].peaks > 3;
+    
+    if (maleActivity) {
+      voiceCount++;
+      activeRegions.push('Male voice range');
+    }
+    
+    if (femaleActivity && !maleActivity) {
+      voiceCount++;
+      activeRegions.push('Female voice range');
+    }
+    
+    // Check for overlapping voices (multiple formant structures)
+    if (formantActivity && bands[4].peaks > 6) {
+      const harmonicComplexity = calculateHarmonicComplexity(dataArray);
+      if (harmonicComplexity > 0.6) {
+        voiceCount = Math.max(voiceCount, 2);
+        activeRegions.push('Complex harmonic structure');
+      }
+    }
+    
+    // Calculate confidence based on energy distribution and spectral characteristics
+    let confidence = 0;
+    if (voiceCount > 1) {
+      const energyVariance = calculateEnergyVariance(bands);
+      const spectralSpread = calculateSpectralSpread(dataArray);
+      confidence = Math.min(0.9, (energyVariance + spectralSpread) / 2);
+    }
+    
+    const details = activeRegions.length > 0 ? activeRegions.join(', ') : 'Single voice detected';
+    
+    return { count: voiceCount, confidence, details };
+  };
+
+  // Calculate harmonic complexity to detect overlapping voices
+  const calculateHarmonicComplexity = (dataArray: Uint8Array): number => {
+    const peaks: number[] = [];
+    const threshold = 30;
+    
+    // Find all significant peaks
+    for (let i = 2; i < dataArray.length - 2; i++) {
+      if (dataArray[i] > threshold &&
+          dataArray[i] > dataArray[i-1] && dataArray[i] > dataArray[i+1] &&
+          dataArray[i] > dataArray[i-2] && dataArray[i] > dataArray[i+2]) {
+        peaks.push(i);
+      }
+    }
+    
+    if (peaks.length < 4) return 0;
+    
+    // Check for multiple harmonic series (indicating multiple voices)
+    let harmonicSeries = 0;
+    for (let i = 0; i < peaks.length - 1; i++) {
+      for (let j = i + 1; j < peaks.length; j++) {
+        const ratio = peaks[j] / peaks[i];
+        if (ratio >= 1.8 && ratio <= 2.2) harmonicSeries++; // Octave relationship
+        if (ratio >= 2.8 && ratio <= 3.2) harmonicSeries++; // Fifth relationship
+      }
+    }
+    
+    return Math.min(1, harmonicSeries / peaks.length);
+  };
+
+  // Calculate energy variance across frequency bands
+  const calculateEnergyVariance = (bands: any[]): number => {
+    const energies = bands.map(b => b.energy);
+    const mean = energies.reduce((sum, e) => sum + e, 0) / energies.length;
+    const variance = energies.reduce((sum, e) => sum + Math.pow(e - mean, 2), 0) / energies.length;
+    return Math.min(1, variance / 100);
+  };
+
+  // Calculate spectral spread
+  const calculateSpectralSpread = (dataArray: Uint8Array): number => {
+    let weightedSum = 0;
+    let totalEnergy = 0;
+    
+    for (let i = 0; i < dataArray.length; i++) {
+      weightedSum += i * dataArray[i];
+      totalEnergy += dataArray[i];
+    }
+    
+    const centroid = totalEnergy > 0 ? weightedSum / totalEnergy : 0;
+    
+    let spread = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      spread += Math.pow(i - centroid, 2) * dataArray[i];
+    }
+    
+    return totalEnergy > 0 ? Math.min(1, Math.sqrt(spread / totalEnergy) / 100) : 0;
+  };
+
+  // Handle multiple voice violations
+  const handleMultipleVoiceViolation = async (message: string, voiceData: any) => {
+    setViolations(prev => prev + 1);
+    onViolation?.('MULTIPLE_VOICES_DETECTED', message);
+
+    try {
+      await fetch('http://localhost:8081/api/monitoring/log-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sessionId,
+          candidateEmail,
+          eventType: 'MULTIPLE_VOICES_DETECTED',
+          description: message,
+          metadata: JSON.stringify({
+            timestamp: Date.now(),
+            voiceCount: voiceData.count,
+            confidence: voiceData.confidence
+          })
+        })
+      });
+    } catch (error) {
+      console.error('Failed to log multiple voice violation:', error);
+    }
+  };
+
   const createVoiceProfile = (samples: number[][]): VoiceProfile => {
     if (samples.length === 0) return { mean: [], variance: [], mfccTemplate: [] };
 
@@ -324,10 +492,39 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
   const startMonitoring = () => {
     let baselineSampleCount = 0;
     const maxBaselineSamples = 10;
+    let multipleVoiceViolations = 0;
 
     const monitor = () => {
       if (status !== 'monitoring') return;
 
+      const dataArray = new Uint8Array(analyserRef.current!.frequencyBinCount);
+      analyserRef.current!.getByteFrequencyData(dataArray);
+
+      // Enhanced multiple voice detection
+      const multiVoiceResult = detectMultipleVoices(dataArray);
+      
+      // Log detection details for debugging
+      if (multiVoiceResult.count > 0) {
+        console.log('Voice Detection:', {
+          count: multiVoiceResult.count,
+          confidence: multiVoiceResult.confidence.toFixed(3),
+          details: multiVoiceResult.details
+        });
+      }
+      
+      if (multiVoiceResult.count > 1 && multiVoiceResult.confidence > 0.3) {
+        multipleVoiceViolations++;
+        
+        const message = `Multiple voices detected: ${multiVoiceResult.count} voices (${multiVoiceResult.details})`;
+        
+        if (multipleVoiceViolations <= 3) {
+          toast.error(`⚠️ WARNING: ${message}`);
+        }
+        
+        handleMultipleVoiceViolation(message, multiVoiceResult);
+      }
+
+      // Original voice identity check
       const currentVoice = extractVoiceFeatures();
       if (currentVoice.length > 0) {
         const similarity = calculateSimilarity(candidateVoiceRef.current!, currentVoice);
@@ -356,7 +553,7 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
         }
       }
 
-      monitoringIntervalRef.current = setTimeout(monitor, 1500);
+      monitoringIntervalRef.current = setTimeout(monitor, 1000);
     };
 
     monitor();
@@ -497,6 +694,7 @@ const VoiceMonitorIndicator: React.FC<VoiceMonitorIndicatorProps> = ({
       {status === 'monitoring' && (
         <div className="text-xs text-gray-600">
           <p>Adaptive Threshold: {adaptiveThreshold.toFixed(3)}</p>
+          <p>Multiple Voice Detection: Active</p>
         </div>
       )}
 

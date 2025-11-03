@@ -69,7 +69,7 @@ const ViewSummaryModal: React.FC<ViewSummaryModalProps> = ({
               <h4 className="font-semibold text-slate-800 mb-2">Score</h4>
               <div className="flex items-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {summary.score}
+                  {summary.score}/30
                 </div>
               </div>
             </div>

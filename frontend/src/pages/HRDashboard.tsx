@@ -45,12 +45,15 @@ const HRDashboard: React.FC = () => {
   // NEW: State for the view report modal
   const [showViewReportModal, setShowViewReportModal] = useState(false);
   const [viewReportData, setViewReportData] = useState<any>(null);
+  // NEW: State for status filtering
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Derived counts for dashboard overview
-  const { passedCount, failedCount, inProgressCount } = useMemo(() => {
+  const { passedCount, failedCount, inProgressCount, pendingCount } = useMemo(() => {
     let passed = 0;
     let failed = 0;
     let inProgress = 0;
+    let pending = 0;
 
     candidates.forEach(candidate => {
       const status = candidate.overallStatus || 'Pending';
@@ -60,14 +63,17 @@ const HRDashboard: React.FC = () => {
         } else {
           failed++;
         }
-      } else {
+      } else if (status === 'In Progress') {
         inProgress++;
+      } else {
+        pending++;
       }
     });
     return {
       passedCount: passed,
       failedCount: failed,
       inProgressCount: inProgress,
+      pendingCount: pending,
     };
   }, [candidates]);
 
@@ -75,6 +81,27 @@ const HRDashboard: React.FC = () => {
   const availableForSchedulingCandidates = useMemo(() => {
     return candidates.filter(c => !c.overallStatus || c.overallStatus === 'Pending');
   }, [candidates]);
+
+  // Filter candidates based on status filter
+  const filteredCandidates = useMemo(() => {
+    if (!statusFilter) return candidates;
+    
+    return candidates.filter(candidate => {
+      const status = candidate.overallStatus || 'Pending';
+      switch (statusFilter) {
+        case 'passed':
+          return status === 'Completed' && candidate.secondRoundStatus === 'PASS';
+        case 'failed':
+          return status === 'Completed' && candidate.secondRoundStatus !== 'PASS';
+        case 'inProgress':
+          return status === 'In Progress';
+        case 'pending':
+          return status === 'Pending';
+        default:
+          return true;
+      }
+    });
+  }, [candidates, statusFilter]);
 
   // Cell renderer components
   const StatusRenderer = (props: any) => {
@@ -231,7 +258,7 @@ const HRDashboard: React.FC = () => {
     if (interviewStatus === 'Completed' && summaryStatus && !firstRoundStatus) {
       return (
         <button
-          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#F58220' }}
           onClick={() => handleViewSummary(props.data.candidateEmail)}
         >
@@ -247,7 +274,7 @@ const HRDashboard: React.FC = () => {
     return (
       <div className="flex gap-1.5">
         <button
-          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#56C5D0' }}
           onClick={() => handleViewCandidate(props.data.candidateEmail)}
           title="View Details"
@@ -255,7 +282,7 @@ const HRDashboard: React.FC = () => {
           View
         </button>
         <button
-          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#F58220' }}
           onClick={() => handleUpdateResume(props.data.candidateEmail)}
           title="Update Resume"
@@ -263,7 +290,7 @@ const HRDashboard: React.FC = () => {
           Update
         </button>
         <button
-          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-2 py-1 rounded text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#ED1C24' }}
           onClick={() => deleteCandidate(props.data.candidateName)}
           title="Delete Candidate"
@@ -308,7 +335,7 @@ const HRDashboard: React.FC = () => {
     if (firstRoundStatus === 'PASS' && (!secondRoundStatus || secondRoundStatus === 'PENDING')) {
       return (
         <button
-          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#F58220' }}
           onClick={() => handleOpenScheduleModal(candidateEmail)}
         >
@@ -322,7 +349,7 @@ const HRDashboard: React.FC = () => {
         <div className="flex flex-col items-center">
           <span className="text-xs font-medium">{secondRoundInterviewerName}</span>
           <button
-            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+            className="text-xs text-blue-600 hover:text-blue-800 mt-1 cursor-pointer"
             onClick={() => handleOpenScheduleModal(candidateEmail)}
           >
             Change
@@ -349,7 +376,7 @@ const HRDashboard: React.FC = () => {
             </div>
           )}
           <button
-            className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+            className="text-white px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
             style={{ backgroundColor: '#28a745' }}
             onClick={() => {
               setReportOptionsCandidate(candidateEmail);
@@ -624,7 +651,7 @@ const HRDashboard: React.FC = () => {
         <h1 className="text-3xl font-bold" style={{ color: '#F58220' }}>HR Dashboard</h1>
         <button
           onClick={handleLogout}
-          className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+          className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
           style={{ backgroundColor: '#ED1C24' }}
         >
           Logout
@@ -641,7 +668,7 @@ const HRDashboard: React.FC = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => setShowScheduleInterviewModal(true)}
-                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
+                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90 cursor-pointer"
                 style={{ backgroundColor: '#56C5D0' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -651,7 +678,7 @@ const HRDashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => setShowAddCandidateModal(true)}
-                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
+                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90 cursor-pointer"
                 style={{ backgroundColor: '#F58220' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -661,7 +688,7 @@ const HRDashboard: React.FC = () => {
               </button>
               <button
                 onClick={loadCandidates}
-                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90"
+                className="text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm flex items-center gap-2 hover:opacity-90 cursor-pointer"
                 style={{ backgroundColor: '#28a745' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -682,19 +709,53 @@ const HRDashboard: React.FC = () => {
               <div>
                 <h2 className="text-xl font-bold text-slate-800 mb-1">Candidates List</h2>
                 <div className="flex gap-4 text-sm text-slate-600">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500"></span> Total: <span className="font-semibold text-slate-700">{candidates.length}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Passed: <span className="font-semibold text-slate-700">{passedCount}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span> In Progress: <span className="font-semibold text-slate-700">{inProgressCount}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-red-500"></span> Failed: <span className="font-semibold text-slate-700">{failedCount}</span>
-                  </span>
+                  <button 
+                    onClick={() => setStatusFilter(null)}
+                    className={`flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer ${!statusFilter ? 'font-bold text-slate-800' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span> 
+                    Total: <span className="font-semibold text-slate-700">{candidates.length}</span>
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('passed')}
+                    className={`flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer ${statusFilter === 'passed' ? 'font-bold text-slate-800' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span> 
+                    Passed: <span className="font-semibold text-slate-700">{passedCount}</span>
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('pending')}
+                    className={`flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer ${statusFilter === 'pending' ? 'font-bold text-slate-800' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-gray-500"></span> 
+                    Pending: <span className="font-semibold text-slate-700">{pendingCount}</span>
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('inProgress')}
+                    className={`flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer ${statusFilter === 'inProgress' ? 'font-bold text-slate-800' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-yellow-500"></span> 
+                    In Progress: <span className="font-semibold text-slate-700">{inProgressCount}</span>
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('failed')}
+                    className={`flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer ${statusFilter === 'failed' ? 'font-bold text-slate-800' : ''}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-red-500"></span> 
+                    Failed: <span className="font-semibold text-slate-700">{failedCount}</span>
+                  </button>
                 </div>
+                {statusFilter && (
+                  <div className="mt-2 text-sm text-slate-600">
+                    Showing {statusFilter} candidates 
+                    <button 
+                      onClick={() => setStatusFilter(null)}
+                      className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    >
+                      Show All
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -712,11 +773,12 @@ const HRDashboard: React.FC = () => {
                 }
               `}</style>
               <AgGridReact
-                rowData={candidates}
+                rowData={filteredCandidates}
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}
                 pagination={true}
-                paginationPageSize={10}
+                paginationPageSize={9}
+                paginationPageSizeSelector={[9, 18, 27]}
                 domLayout="normal"
                 rowHeight={50}
                 headerHeight={45}
@@ -798,7 +860,7 @@ const HRDashboard: React.FC = () => {
                 <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
                   <span className="font-medium text-slate-700">First Round Report</span>
                   <button
-                    className="px-4 py-2 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:opacity-90"
+                    className="px-4 py-2 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:opacity-90 cursor-pointer"
                     style={{ backgroundColor: '#56C5D0' }}
                     onClick={() => handleViewReport(reportOptionsCandidate, 'first')}
                   >
@@ -809,7 +871,7 @@ const HRDashboard: React.FC = () => {
               <div className="mt-6 text-center">
                 <button
                   onClick={() => setShowReportOptionsModal(false)}
-                  className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+                  className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors cursor-pointer"
                 >
                   Close
                 </button>
@@ -830,7 +892,7 @@ const HRDashboard: React.FC = () => {
                 </h3>
                 <button
                   onClick={() => setShowViewReportModal(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -892,7 +954,7 @@ const HRDashboard: React.FC = () => {
                     <h4 className="font-semibold text-slate-800 mb-2">Score</h4>
                     <div className="flex items-center">
                       <div className="text-2xl font-bold text-green-600">
-                        {viewReportData.score}
+                        {viewReportData.score}/30
                       </div>
                     </div>
                   </div>
@@ -902,7 +964,7 @@ const HRDashboard: React.FC = () => {
             <div className="p-4 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => setShowViewReportModal(false)}
-                className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+                className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -930,14 +992,14 @@ const HRDashboard: React.FC = () => {
                     navigator.clipboard.writeText(magicLink);
                     toast.success('Link copied to clipboard!');
                   }}
-                  className="p-2 text-slate-500 hover:text-slate-800 transition-colors"
+                  className="p-2 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                   title="Copy to clipboard"
                 >
                   <FaCopy />
                 </button>
               </div>
               <div className="mt-6 text-right">
-                <button onClick={() => setMagicLink(null)} className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700">Close</button>
+                <button onClick={() => setMagicLink(null)} className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700 cursor-pointer">Close</button>
               </div>
             </div>
           </div>
@@ -946,5 +1008,4 @@ const HRDashboard: React.FC = () => {
     </div>
   );
 };
-
 export default HRDashboard;
