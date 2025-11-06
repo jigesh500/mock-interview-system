@@ -152,7 +152,7 @@ const CandidateDashboard: React.FC = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
               <h2 className="text-xl font-bold mb-4">Start Interview Confirmation</h2>
-              <p className="mb-6">Are you sure you want to start the interview? The interview will open in a new tab. Make sure you have a stable internet connection.</p>
+              <p className="mb-6">Are you sure you want to start the interview?  Make sure you have a stable internet connection.</p>
               <div className="flex justify-end space-x-4">
                 <button
                   onClick={cancelStartInterview}

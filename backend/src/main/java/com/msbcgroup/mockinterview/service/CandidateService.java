@@ -172,6 +172,14 @@ public class CandidateService {
         System.out.println("HasSummary: " + hasSummary);
         
         candidateData.put("summaryStatus", hasSummary);
+        Optional<InterviewMeeting> scheduledMeeting = meetingRepository.findAllByCandidateEmailAndStatus(
+                        candidate.getCandidateEmail(), InterviewMeeting.MeetingStatus.SCHEDULED)
+                .stream().findFirst();
+        if (scheduledMeeting.isPresent() ) {
+            candidateData.put("magicLink", scheduledMeeting.get().getMeetingUrl());
+        } else {
+            candidateData.put("magicLink", null);
+        }
 
         return candidateData;
     }
@@ -263,6 +271,9 @@ public class CandidateService {
         candidateData.put("overallStatus", candidate.getOverallStatus());
         candidateData.put("lastDecisionTimestamp", candidate.getLastDecisionTimestamp());
         candidateData.put("decisionMadeBy", candidate.getDecisionMadeBy());
+
+
+
         return candidateData;
     }
 

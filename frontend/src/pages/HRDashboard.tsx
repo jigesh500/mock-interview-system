@@ -48,6 +48,7 @@ const HRDashboard: React.FC = () => {
   // NEW: State for status filtering
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
+
   // Derived counts for dashboard overview
   const { passedCount, failedCount, inProgressCount, pendingCount } = useMemo(() => {
     let passed = 0;
@@ -215,22 +216,19 @@ const HRDashboard: React.FC = () => {
     setShowScheduleModal(true);
   }, []);
 
-//   const handleBack = () => {
-//     dispatch(clearAuth());
-//     navigate('/auth/login');
-//   };
-
   const FirstRoundRenderer = useMemo(() => (props: any) => {
     const firstRoundStatus = props.data.firstRoundStatus;
     const interviewStatus = props.data.interviewStatus;
     const summaryStatus = props.data.summaryStatus;
     const candidateEmail = props.data.candidateEmail;
+    const magicLink = props.data.magicLink;
 
     // Debug logging
     console.log(`Candidate ${candidateEmail}:`, {
       firstRoundStatus,
       interviewStatus,
-      summaryStatus
+      summaryStatus,
+
     });
 
     if (firstRoundStatus === 'FAIL') {
@@ -253,6 +251,25 @@ const HRDashboard: React.FC = () => {
           Pass
         </span>
       );
+    }
+if(firstRoundStatus!=='FAIL'&&'PASS'&& magicLink && !summaryStatus ){
+
+        return (
+              <div className="flex items-center gap-2">
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(magicLink);
+                    toast.success('Interview link copied to clipboard!');
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  title="Copy magic link"
+                >
+                  <FaCopy size={10} />
+                  Copy Link
+                </button>
+              </div>
+            );
     }
 
     if (interviewStatus === 'Completed' && summaryStatus && !firstRoundStatus) {
@@ -777,8 +794,8 @@ const HRDashboard: React.FC = () => {
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}
                 pagination={true}
-                paginationPageSize={9}
-                paginationPageSizeSelector={[9, 18, 27]}
+                paginationPageSize={8}
+                paginationPageSizeSelector={[8,16,24]}
                 domLayout="normal"
                 rowHeight={50}
                 headerHeight={45}

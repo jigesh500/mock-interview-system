@@ -566,6 +566,19 @@ useEffect(() => {
           </Card>
         </Box>
       </Box>
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center z-[9999]">
+          <div className="bg-white px-8 py-6 rounded-lg shadow-lg flex flex-col items-center">
+            <CircularProgress color="primary" />
+            <Typography variant="h6" className="mt-3 font-semibold text-gray-700">
+              Submitting your interview...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" className="mt-1">
+              Please wait, do not close or refresh this window.
+            </Typography>
+          </div>
+        </div>
+      )}
     </>
   );
 };

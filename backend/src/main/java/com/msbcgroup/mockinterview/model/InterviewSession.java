@@ -23,9 +23,6 @@ public class InterviewSession {
     private boolean completed = false;
 
 
-
-
-
     public InterviewSession() {
         this.createdAt = LocalDateTime.now();
     }

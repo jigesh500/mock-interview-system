@@ -12,8 +12,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Don't redirect, just return the error
-      console.log('Unauthorized request, but not redirecting');
+      // Session timeout - redirect to login
+      window.location.href = 'http://localhost:5173/auth/login';
     }
     return Promise.reject(error);
   }
