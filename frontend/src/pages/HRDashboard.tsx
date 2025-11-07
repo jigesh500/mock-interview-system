@@ -252,7 +252,7 @@ const HRDashboard: React.FC = () => {
         </span>
       );
     }
-if(firstRoundStatus!=='FAIL'&&'PASS'&& magicLink && !summaryStatus ){
+if(firstRoundStatus!=='FAIL'&&'PASS'&& magicLink){
 
         return (
               <div className="flex items-center gap-2">

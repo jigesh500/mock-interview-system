@@ -56,6 +56,26 @@ public class MonitoringService {
         logEvent(eventData);
     }
 
+    public void logEvent(String sessionId, String candidateEmail, String eventType, String description) {
+        System.out.println("\n=== DATABASE EVENT LOGGING ===");
+        System.out.println("Session ID: " + sessionId);
+        System.out.println("Candidate Email: " + candidateEmail);
+        System.out.println("Event Type: " + eventType);
+        System.out.println("Description: " + description);
+        
+        MonitoringEvent event = new MonitoringEvent();
+        event.setSessionId(sessionId);
+        event.setCandidateEmail(candidateEmail);
+        event.setEventType(MonitoringEvent.EventType.valueOf(eventType));
+        event.setDescription(description);
+        
+        MonitoringEvent savedEvent = eventRepository.save(event);
+        
+        System.out.println("Event saved to database with ID: " + savedEvent.getId());
+        System.out.println("Timestamp: " + savedEvent.getTimestamp());
+        System.out.println("=== EVENT LOGGING COMPLETE ===\n");
+    }
+
     public Map<String, String> getCandidateBySession(String sessionId) {
         InterviewSession session = sessionRepository.findBySessionId(sessionId).orElse(null);
         Map<String, String> response = new HashMap<>();

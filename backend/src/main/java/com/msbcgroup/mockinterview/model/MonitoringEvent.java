@@ -57,7 +57,11 @@ public class MonitoringEvent {
     public void setEventType(EventType eventType) { this.eventType = eventType; }
 
     public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setDescription(String description) { if (description != null && description.length() > 1000) {
+        this.description = description.substring(0, 997) + "...";
+    } else {
+        this.description = description;
+    } }
 
     public String getMetadata() { return metadata; }
     public void setMetadata(String metadata) { this.metadata = metadata; }

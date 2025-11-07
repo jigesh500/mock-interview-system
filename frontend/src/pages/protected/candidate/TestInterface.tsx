@@ -33,8 +33,14 @@ import {
 import TestSidebar from '../../../Components/candidate/TestSidebar';
 import CameraMonitor from '../../../Components/CameraMonitor';
 import PreInterviewSetup from '../../../Components/PreInterviewSetup';
-import InterviewVoiceMonitor from '../../../Components/InterviewVoiceMonitor';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import VoiceMonitorNew from '../../../Components/VoiceMonitorNew';
+
+
+
+
+
+
 
 interface StartTestProps {
   onExamSubmit?: () => void;
@@ -52,7 +58,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [codeOutput, setCodeOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-  const [voiceProfile, setVoiceProfile] = useState(null);
+const [candidateEmail, setCandidateEmail] = useState<string>('');
   const [examSubmitted, setExamSubmitted] = useState(false);
 
 
@@ -168,8 +174,19 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
         try {
           dispatch(resetTestState());
           const response = await interviewAPI.startInterviewWithSession(urlSessionId);
+          const currentSessionId = response.data.sessionId;
           dispatch(setQuestions(response.data.questions));
-          dispatch(setReduxSessionId(response.data.sessionId));
+          dispatch(setReduxSessionId(currentSessionId));
+
+           // Fetch candidate email using the session ID
+                    const emailResponse = await fetch(`http://localhost:8081/api/monitoring/session/${currentSessionId}/candidate`);
+                    if (emailResponse.ok) {
+                      const data = await emailResponse.json();
+                      setCandidateEmail(data.candidateEmail);
+                    } else {
+                      console.error("Failed to fetch candidate email");
+                    }
+
         } catch (error) {
           console.error("Failed to start interview:", error);
           toast.error("Could not start the interview. The link may be invalid or expired.");
@@ -250,8 +267,7 @@ useEffect(() => {
         <Toaster position="top-center" />
         <PreInterviewSetup
           sessionId={sessionId || ''}
-          onSetupComplete={(profile) => {
-            setVoiceProfile(profile);
+          onSetupComplete={() => {
             setSetupComplete(true);
             setCameraReady(true);
           }}
@@ -339,13 +355,11 @@ useEffect(() => {
                   (window as any).deactivateCameraSecurity?.();
                 }}
               />
-              {voiceProfile && (
-                <InterviewVoiceMonitor
-                  sessionId={sessionId || ''}
-                  voiceProfile={voiceProfile}
-                  onViolation={handleSecurityViolation}
-                />
-              )}
+              <VoiceMonitorNew
+                sessionId={sessionId || ''}
+                candidateEmail={candidateEmail}
+                onViolation={handleSecurityViolation}
+              />
             </Box>
           </Box>
 

@@ -304,7 +304,8 @@ public class InterviewService {
         Map<MonitoringEvent.EventType, Long> violationCounts = events.stream()
                 .filter(e -> e.getEventType() == MonitoringEvent.EventType.FACE_NOT_DETECTED
                         || e.getEventType() == MonitoringEvent.EventType.MULTIPLE_FACES
-                        || e.getEventType() == MonitoringEvent.EventType.TAB_SWITCH)
+                        || e.getEventType() == MonitoringEvent.EventType.TAB_SWITCH
+                        ||e.getEventType() == MonitoringEvent.EventType.UNKNOWN_VOICE_DETECTED)
                 .collect(Collectors.groupingBy(MonitoringEvent::getEventType, Collectors.counting()));
 
         if (!violationCounts.isEmpty()) {

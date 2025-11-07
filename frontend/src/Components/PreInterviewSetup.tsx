@@ -272,7 +272,7 @@ const PreInterviewSetup: React.FC<PreInterviewSetupProps> = ({
                 We'll now capture your voice profile for security monitoring during the interview.
               </p>
 
-              {calibrationProgress > 0 && (
+             {calibrationProgress > 0 && (
                 <div className="mb-4">
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
