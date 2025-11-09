@@ -36,12 +36,6 @@ import PreInterviewSetup from '../../../Components/PreInterviewSetup';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import VoiceMonitorNew from '../../../Components/VoiceMonitorNew';
 
-
-
-
-
-
-
 interface StartTestProps {
   onExamSubmit?: () => void;
 }
@@ -58,9 +52,9 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const [codeOutput, setCodeOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-const [candidateEmail, setCandidateEmail] = useState<string>('');
+  const [candidateEmail, setCandidateEmail] = useState<string>('');
   const [examSubmitted, setExamSubmitted] = useState(false);
-
+  const [voiceBaselineStored, setVoiceBaselineStored] = useState(false);
 
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     console.warn('Security violation:', type, message);
@@ -72,35 +66,30 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
       }
     }, []);
 
-
-
   const { activateSecurity, deactivateSecurity } = useExamSecurity(handleSecurityViolation, sessionId);
+  
   const getJavaClassName = (code: string): string | null => {
-    // This regex looks for "public class SomeClassName"
     const match = code.match(/public\s+class\s+([a-zA-Z_$][\w$]*)/);
     return match ? match[1] : null;
   };
 
-  // 🚫 Prevent refresh, back navigation, and reload shortcuts
+  // Prevent refresh, back navigation, and reload shortcuts
   useEffect(() => {
-    // Warn before leaving the page (refresh, close, etc.)
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (examSubmitted) return; // Don't show alert if exam is submitted
+      if (examSubmitted) return;
       event.preventDefault();
       event.returnValue = "Are you sure you want to leave? Your interview progress will be lost.";
     };
 
-    // Disable browser back button
     const handlePopState = (event: PopStateEvent) => {
       event.preventDefault();
       window.history.pushState(null, "", window.location.href);
       toast.error("Back navigation is disabled during the interview.");
     };
 
-    // Disable refresh shortcuts (F5 / Ctrl+R)
     const disableKeys = (e: KeyboardEvent) => {
       if (
-        (e.ctrlKey && e.key.toLowerCase() === "r") || // Ctrl+R
+        (e.ctrlKey && e.key.toLowerCase() === "r") ||
         e.key === "F5"
       ) {
         e.preventDefault();
@@ -108,7 +97,6 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
       }
     };
 
-    // Attach listeners
     window.addEventListener("beforeunload", handleBeforeUnload);
     window.history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
@@ -135,7 +123,7 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
       const response = await interviewAPI.submitAnswers(answersPayload, sessionId);
 
       if (response.data.status === "success") {
-        setExamSubmitted(true); // Mark exam as submitted
+        setExamSubmitted(true);
         deactivateSecurity();
         (window as any).deactivateCameraSecurity?.();
         try {
@@ -178,14 +166,13 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
           dispatch(setQuestions(response.data.questions));
           dispatch(setReduxSessionId(currentSessionId));
 
-           // Fetch candidate email using the session ID
-                    const emailResponse = await fetch(`http://localhost:8081/api/monitoring/session/${currentSessionId}/candidate`);
-                    if (emailResponse.ok) {
-                      const data = await emailResponse.json();
-                      setCandidateEmail(data.candidateEmail);
-                    } else {
-                      console.error("Failed to fetch candidate email");
-                    }
+          const emailResponse = await fetch(`http://localhost:8081/api/monitoring/session/${currentSessionId}/candidate`);
+          if (emailResponse.ok) {
+            const data = await emailResponse.json();
+            setCandidateEmail(data.candidateEmail);
+          } else {
+            console.error("Failed to fetch candidate email");
+          }
 
         } catch (error) {
           console.error("Failed to start interview:", error);
@@ -197,10 +184,10 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
   }, [dispatch, urlSessionId]);
 
   useEffect(() => {
-    if (questions.length > 0) {
+    if (questions.length > 0 && voiceBaselineStored) {
       activateSecurity();
     }
-  }, [questions.length, activateSecurity]);
+  }, [questions.length, voiceBaselineStored, activateSecurity]);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -213,14 +200,13 @@ const [candidateEmail, setCandidateEmail] = useState<string>('');
     return () => clearInterval(timer);
   }, [timeLeft, handleSubmit]);
 
-
-useEffect(() => {
-    // Reset code output when navigating to a new coding question
+  useEffect(() => {
     if (questions[currentQuestionIndex]?.type === "Coding") {
       setCodeOutput('');
     }
   }, [currentQuestionIndex, questions]);
- useEffect(() => {
+  
+  useEffect(() => {
     const currentQuestion = questions[currentQuestionIndex];
     const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "" : "";
 
@@ -229,7 +215,6 @@ useEffect(() => {
       dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
     }
   }, [currentLanguage, currentQuestionIndex, questions, answers, dispatch]);
-
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
     const showDisabledToast = (action: string) => {
@@ -258,8 +243,6 @@ useEffect(() => {
     });
   };
 
-
-
   // Show pre-interview setup if not completed
   if (!setupComplete) {
     return (
@@ -272,6 +255,44 @@ useEffect(() => {
             setCameraReady(true);
           }}
         />
+      </>
+    );
+  }
+
+  // Show voice baseline capture screen if not stored yet
+  if (!voiceBaselineStored) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full bg-white rounded-xl shadow-lg p-8">
+            <h1 className="text-3xl font-bold text-center mb-8">Voice Setup Required</h1>
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold mb-4">Setting up voice monitoring...</h2>
+              <p className="text-gray-600 mb-6">
+                Please wait while we capture your voice baseline for security monitoring.
+              </p>
+            </div>
+            
+            <div className="max-w-md mx-auto">
+              <VoiceMonitorNew
+                sessionId={sessionId || ''}
+                candidateEmail={candidateEmail}
+                onViolation={handleSecurityViolation}
+                onBaselineStored={() => {
+                  setVoiceBaselineStored(true);
+                  toast.success('Voice setup complete! Starting interview...');
+                }}
+                skipBaselineCapture={false}
+              />
+            </div>
+          </div>
+        </div>
       </>
     );
   }
@@ -289,7 +310,7 @@ useEffect(() => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-      const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "":"";
+  const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "":"";
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -313,21 +334,21 @@ useEffect(() => {
     if (!selectedAnswer.trim()) {
       toast.error('Please write some code first');
       return;
-    }//Handle Java code execution
-  if (currentLanguage === 'java') {
-    const className = getJavaClassName(selectedAnswer);
-    if (!className) {
-      toast.error('For Java, please wrap your code in a "public class YourClassName { ... }" block.');
-      return;
     }
-  }
+    
+    if (currentLanguage === 'java') {
+      const className = getJavaClassName(selectedAnswer);
+      if (!className) {
+        toast.error('For Java, please wrap your code in a "public class YourClassName { ... }" block.');
+        return;
+      }
+    }
 
     setIsExecuting(true);
     setCodeOutput('Executing...');
 
     const className = currentLanguage === 'java' ? getJavaClassName(selectedAnswer) : undefined;
-
-   const result = await executeCode(selectedAnswer, currentLanguage, className);
+    const result = await executeCode(selectedAnswer, currentLanguage, className);
 
     if (result.error) {
       setCodeOutput(`Error: ${result.error}`);
@@ -359,6 +380,7 @@ useEffect(() => {
                 sessionId={sessionId || ''}
                 candidateEmail={candidateEmail}
                 onViolation={handleSecurityViolation}
+                skipBaselineCapture={true}
               />
             </Box>
           </Box>
@@ -377,7 +399,7 @@ useEffect(() => {
                     display: 'flex',
                     flexDirection: 'column',
                     height: '100%',
-                    p: 3, // Using sx for padding to be consistent
+                    p: 3,
                   }}
                 >
               {/* Header with Circular Timer */}
@@ -465,13 +487,10 @@ useEffect(() => {
                           const newLanguage = e.target.value;
                           setCurrentLanguage(newLanguage);
                           
-                          // Clear existing code when switching languages
                           if (newLanguage === 'java') {
-                            // Set Java template only for Java
                             const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
                             dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
                           } else {
-                            // Clear code for other languages
                             dispatch(saveAnswer({ questionId: currentQuestion.id, answer: "" }));
                           }
                         }}
@@ -503,7 +522,7 @@ useEffect(() => {
                         fontSize: 14,
                         wordWrap: "on",
                         automaticLayout: true,
-                        contextmenu: false, // Disable right-click context menu
+                        contextmenu: false,
                       }}
                     />
                     <Box className="p-3 bg-black text-green-400 font-mono text-sm min-h-[80px] border-t">
@@ -542,7 +561,6 @@ useEffect(() => {
                   >
                     Previous
                   </Button>
-
                 </Box>
 
                 <Box className="flex-1 flex justify-center">
@@ -569,12 +587,12 @@ useEffect(() => {
                 </Box>
 
                 <Button
-                                    variant="outlined"
-                                    onClick={() => dispatch(nextQuestion())}
-                                    disabled={currentQuestionIndex === questions.length - 1}
-                                  >
-                                    Next
-                                  </Button>
+                  variant="outlined"
+                  onClick={() => dispatch(nextQuestion())}
+                  disabled={currentQuestionIndex === questions.length - 1}
+                >
+                  Next
+                </Button>
               </Box>
             </CardContent>
           </Card>
