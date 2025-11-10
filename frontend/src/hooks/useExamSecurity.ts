@@ -42,7 +42,7 @@ export const useExamSecurity = (
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const forbidden = [
-        e.key === 'f12',
+        e.key === 'F12',
         e.key === 'PrintScreen',
         (e.ctrlKey && e.shiftKey && e.key === 'I'),
         (e.ctrlKey && e.key === 'u'),

@@ -29,39 +29,12 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
       setBaselineStored(true);
       initializeVoiceCapture();
     } else {
-      checkExistingBaseline();
+      initializeVoiceCapture();
     }
     return () => cleanup();
   }, [skipBaselineCapture]);
 
-  const checkExistingBaseline = async () => {
-    try {
-      const response = await fetch(`http://localhost:8081/api/voice/check-baseline?candidateEmail=${encodeURIComponent(candidateEmail)}`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
-      
-      if (result.exists) {
-        setBaselineStored(true);
-        setStatus('monitoring');
-        toast.success('✅ Voice baseline already exists! Starting monitoring...');
-        
-        if (onBaselineStored) {
-          onBaselineStored();
-        }
-        
-        initializeVoiceCapture();
-      } else {
-        initializeVoiceCapture();
-      }
-      
-    } catch (error) {
-      console.error('Failed to check existing baseline:', error);
-      initializeVoiceCapture();
-    }
-  };
+
 
   const initializeVoiceCapture = async () => {
     try {
@@ -93,6 +66,12 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
   };
 
   const startVoiceCapture = () => {
+    if (baselineStored) {
+      console.log('Baseline already stored, skipping capture');
+      return;
+    }
+    
+    console.log('Starting voice capture process...');
     setStatus('capturing');
     setShowVoicePrompt(true);
     
@@ -102,8 +81,13 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
   };
 
   const captureBaseline = async () => {
-    if (!streamRef.current) return;
+    if (!streamRef.current) {
+      console.error('No stream available for baseline capture');
+      return;
+    }
 
+    console.log('Starting baseline capture...');
+    
     try {
       const mediaRecorder = new MediaRecorder(streamRef.current, {
         mimeType: 'audio/webm;codecs=opus'
@@ -112,37 +96,58 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
       const audioChunks: Blob[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
+        console.log('Audio data received, size:', event.data.size);
         if (event.data.size > 0) {
           audioChunks.push(event.data);
         }
       };
       
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        await storeBaseline(audioBlob);
+        console.log('Recording stopped, chunks:', audioChunks.length);
+        if (audioChunks.length > 0) {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          console.log('Created audio blob, size:', audioBlob.size);
+          await storeBaseline(audioBlob);
+        } else {
+          console.error('No audio data captured, retrying...');
+          setTimeout(() => {
+            if (!baselineStored) {
+              startVoiceCapture();
+            }
+          }, 2000);
+        }
       };
       
       mediaRecorder.start();
+      console.log('MediaRecorder started');
+      
       setTimeout(() => {
         if (mediaRecorder.state === 'recording') {
+          console.log('Stopping recording after 4 seconds');
           mediaRecorder.stop();
         }
       }, 4000);
       
     } catch (error) {
       console.error('Baseline capture failed:', error);
-      setStatus('error');
-      setShowVoicePrompt(false);
+      setTimeout(() => {
+        if (!baselineStored) {
+          startVoiceCapture();
+        }
+      }, 2000);
     }
   };
 
   const storeBaseline = async (audioBlob: Blob) => {
+    console.log('Attempting to store baseline, blob size:', audioBlob.size);
+    
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'baseline.webm');
       formData.append('sessionId', sessionId);
       formData.append('candidateEmail', candidateEmail);
       
+      console.log('Sending baseline to server...');
       const response = await fetch('http://localhost:8081/api/voice/store-baseline', {
         method: 'POST',
         body: formData,
@@ -150,12 +155,13 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
       });
       
       const result = await response.json();
+      console.log('Server response:', result);
       
       if (result.success) {
         setBaselineStored(true);
         setStatus('monitoring');
         setShowVoicePrompt(false);
-        toast.success('✅ Voice baseline stored! Interview can now begin.');
+        console.log('✅ Baseline stored successfully!');
         
         if (onBaselineStored) {
           onBaselineStored();
@@ -163,41 +169,21 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
         
         startMonitoring();
       } else {
-        if (result.error && result.error.includes('Duplicate entry')) {
-          setBaselineStored(true);
-          setStatus('monitoring');
-          setShowVoicePrompt(false);
-          toast.success('✅ Voice baseline already exists! Starting monitoring...');
-          
-          if (onBaselineStored) {
-            onBaselineStored();
+        console.log('Baseline storage failed, retrying...', result.error);
+        setTimeout(() => {
+          if (!baselineStored) {
+            startVoiceCapture();
           }
-          
-          startMonitoring();
-        } else {
-          throw new Error(result.error || 'Failed to store baseline');
-        }
+        }, 3000);
       }
       
     } catch (error) {
       console.error('Baseline storage failed:', error);
-      
-      if (error.message && error.message.includes('Duplicate entry')) {
-        setBaselineStored(true);
-        setStatus('monitoring');
-        setShowVoicePrompt(false);
-        toast.success('✅ Voice baseline already exists! Starting monitoring...');
-        
-        if (onBaselineStored) {
-          onBaselineStored();
+      setTimeout(() => {
+        if (!baselineStored) {
+          startVoiceCapture();
         }
-        
-        startMonitoring();
-      } else {
-        setStatus('error');
-        setShowVoicePrompt(false);
-        toast.error('Failed to store voice baseline');
-      }
+      }, 3000);
     }
   };
 
@@ -258,7 +244,7 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
       if (result.violation) {
         setViolations(prev => prev + 1);
         onViolation?.('UNKNOWN_VOICE_DETECTED', result.message);
-        //toast.error('🚨 ' + result.message);
+        toast.error('🚨 ' + result.message);
       }
       
     } catch (error) {
@@ -296,7 +282,7 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
           </span>
         </div>
         
-        {showVoicePrompt && (
+        {(showVoicePrompt || (status === 'capturing' && !baselineStored)) && (
           <div className="text-xs text-blue-700 font-medium bg-blue-100 p-2 rounded border">
             🎤 Say: "Hello, I am ready for this interview"
           </div>

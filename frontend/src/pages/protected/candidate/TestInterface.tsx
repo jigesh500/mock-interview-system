@@ -59,10 +59,10 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
   const handleSecurityViolation = useCallback(async (type: string, message: string) => {
     console.warn('Security violation:', type, message);
      if (type === 'UNKNOWN_VOICE_DETECTED') {
-        toast.error(`Voice Security Alert: ${message}`, {
-          duration: 5000,
-          icon: '🔴'
-        });
+//         toast.error(`Voice Security Alert: ${message}`, {
+//           duration: 5000,
+//           icon: '🔴'
+//         });
       }
     }, []);
 
@@ -274,9 +274,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                 </svg>
               </div>
               <h2 className="text-xl font-semibold mb-4">Setting up voice monitoring...</h2>
-              <p className="text-gray-600 mb-6">
-                Please wait while we capture your voice baseline for security monitoring.
-              </p>
+
             </div>
             
             <div className="max-w-md mx-auto">

@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { interviewAPI } from '../services/api'; // Assuming you add interviewAPI to your api.ts
 import toast, { Toaster } from 'react-hot-toast';
-// import AIVoiceMonitor from '../Components/AIVoiceMonitor';
+import { useExamSecurity } from '../hooks/useExamSecurity';
+
 
 // Define the types for our data
 interface Question {
@@ -15,10 +16,10 @@ interface Question {
 }
 
 const ExamPage: React.FC = () => {
-  const { sessionId } = useParams<{ sessionId: string }>();
+
+
+const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-
-
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
@@ -26,7 +27,18 @@ const ExamPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voiceCalibrated, setVoiceCalibrated] = useState(false);
+const { activateSecurity, deactivateSecurity } = useExamSecurity(
+    (type, message) => {
+      console.log('Security violation:', type, message);
 
+    },
+    sessionId
+  );
+useEffect(() => {
+  if (questions.length > 0) {
+    activateSecurity();
+  }
+}, [questions, activateSecurity]);
   useEffect(() => {
     if (!sessionId) {
       setError('No session ID provided.');
@@ -64,6 +76,7 @@ const ExamPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    deactivateSecurity();
     if (!sessionId) return;
 
     if (Object.keys(answers).length < questions.length) {
