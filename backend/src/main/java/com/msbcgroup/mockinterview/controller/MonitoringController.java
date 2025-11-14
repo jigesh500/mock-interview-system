@@ -30,6 +30,23 @@ public class MonitoringController {
             return ResponseEntity.status(500).body("Error logging event: " + e.getMessage());
         }
     }
+    
+    @PostMapping("/batch-log-events")
+    public ResponseEntity<String> logBatchEvents(@RequestBody Map<String, Object> batchData) {
+        try {
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> events = (java.util.List<Map<String, Object>>) batchData.get("events");
+            
+            if (events == null || events.isEmpty()) {
+                return ResponseEntity.badRequest().body("No events provided");
+            }
+            
+            monitoringService.logBatchEvents(events);
+            return ResponseEntity.ok("Batch events logged successfully: " + events.size() + " events");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error logging batch events: " + e.getMessage());
+        }
+    }
 
     @GetMapping("/session/{sessionId}/candidate")
     public ResponseEntity<Map<String, String>> getCandidateBySession(@PathVariable String sessionId) {

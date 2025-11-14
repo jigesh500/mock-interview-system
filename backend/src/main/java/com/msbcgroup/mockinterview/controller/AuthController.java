@@ -2,15 +2,14 @@ package com.msbcgroup.mockinterview.controller;
 
 
 import com.msbcgroup.mockinterview.service.AuthService;
-import jakarta.servlet.http.Cookie;
+import com.msbcgroup.mockinterview.util.ResponseUtils;
+import com.msbcgroup.mockinterview.util.SessionManager;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +26,9 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private SessionManager sessionManager;
 
     @Value("${spring.security.oauth2.client.registration.auth0.client-id}")
     private String clientId;
@@ -68,32 +70,14 @@ public class AuthController {
     @PostMapping("/logout")
     @ResponseBody
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
+        sessionManager.clearUserSession(request, response);
 
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
+        String auth0LogoutUrl = "https://dev-wbdogywioc218nsb.us.auth0.com/v2/logout?returnTo=http://localhost:5173&client_id=" + clientId;
 
-        SecurityContextHolder.clearContext();
-
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                cookie.setValue("");
-                cookie.setPath("/");
-                cookie.setMaxAge(0);
-                response.addCookie(cookie);
-            }
-        }
-         String auth0LogoutUrl = "https://dev-wbdogywioc218nsb.us.auth0.com/v2/logout?returnTo=http://localhost:5173&client_id="+clientId;
-
-         Map<String, String> responseBody = new HashMap<>();
-         responseBody.put("message", "Logged out successfully");
-         responseBody.put("auth0LogoutUrl", auth0LogoutUrl);
+        Map<String, String> responseBody = ResponseUtils.createSimpleResponse("Logged out successfully");
+        responseBody.put("auth0LogoutUrl", auth0LogoutUrl);
 
         return ResponseEntity.ok(responseBody);
-
-
     }
 
 

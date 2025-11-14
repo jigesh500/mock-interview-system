@@ -4,10 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.msbcgroup.mockinterview.dto.InterviewScheduleResponse;
+import com.msbcgroup.mockinterview.dto.InterviewSummaryResponse;
 import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.*;
+import com.msbcgroup.mockinterview.service.ai.AIService;
+import com.msbcgroup.mockinterview.service.question.QuestionPromptFactory;
+import com.msbcgroup.mockinterview.util.ResponseUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,7 +21,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class InterviewService {
+public class InterviewService implements InterviewServiceInterface{
 
     @Autowired
     private InterviewSessionRepository sessionRepository;
@@ -35,32 +41,49 @@ public class InterviewService {
     @Autowired
     private MonitoringEventRepository eventRepository;
 
+    @Autowired
+    private AIService aiService;
+    @Autowired
+    private QuestionPromptFactory questionPromptFactory;
+
     private final ChatClient chatClient;
 
     public InterviewService(ChatClient.Builder chatClient) {
         this.chatClient = chatClient.build();
     }
 
-    public Map<String, Object> scheduleInterview(String candidateEmail) throws Exception {
+    public InterviewScheduleResponse scheduleInterview(String candidateEmail) throws Exception {
         CandidateProfile profile = candidateProfileRepository.findByCandidateEmail(candidateEmail)
                 .orElseThrow(() -> new RuntimeException("Candidate profile not found for email: " + candidateEmail));
+
+        // Check if there's already a scheduled interview
+        List<InterviewMeeting> existingMeetings = meetingRepository.findAllByCandidateEmailAndStatus(
+                candidateEmail, InterviewMeeting.MeetingStatus.SCHEDULED);
+        
+        if (!existingMeetings.isEmpty()) {
+            InterviewMeeting existingMeeting = existingMeetings.get(0);
+            return new InterviewScheduleResponse(
+                    existingMeeting.getMeetingUrl(),
+                    "Interview already scheduled. Using existing link.",
+                    existingMeeting.getLoginToken());
+        }
 
         if ("Pending".equals(profile.getOverallStatus())) {
             profile.setOverallStatus("In Progress");
             candidateProfileRepository.save(profile);
         }
 
-        List<Question> questions = generateQuestionsFromProfile(profile);
-        ObjectMapper mapper = new ObjectMapper();
-        String questionsJson = mapper.writeValueAsString(questions);
-
+        // Create session immediately without questions
         InterviewSession session = new InterviewSession();
         String sessionId = UUID.randomUUID().toString();
         session.setSessionId(sessionId);
         session.setCandidateEmail(candidateEmail);
-        session.setQuestionsJson(questionsJson);
+        session.setQuestionsJson(null); // Will be populated async
         session.setCompleted(false);
         sessionRepository.save(session);
+        
+        // Generate questions asynchronously
+        generateQuestionsAsync(sessionId, profile);
 
         String magicLink = "http://localhost:8081/api/auth/start-interview/" + sessionId;
 
@@ -72,13 +95,10 @@ public class InterviewService {
         meeting.setTokenExpiry(LocalDateTime.now().plusHours(48));
         meetingRepository.save(meeting);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("magicLink", magicLink);
-        response.put("message", "Interview scheduled successfully.");
-        return response;
+        return new InterviewScheduleResponse(magicLink,"Interview scheduled successfully",sessionId);
     }
 
-    public Map<String, Object> getInterviewSummary(String candidateEmail) {
+    public InterviewSummaryResponse getInterviewSummary(String candidateEmail) {
         Optional<InterviewResult> result = interviewResultRepository.findByCandidateEmail(candidateEmail);
 
         if (result.isPresent() && result.get().getSummary() != null) {
@@ -86,13 +106,12 @@ public class InterviewService {
             Optional<InterviewSummary> summary = interviewSummaryRepository.findById(summaryId);
 
             if (summary.isPresent()) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("score", summary.get().getScore());
-                response.put("summary", summary.get().getSummary());
-                return response;
+                return new InterviewSummaryResponse(
+                        summary.get().getScore(),
+                        summary.get().getSummary());
             }
         }
-        return null;
+        throw new RuntimeException("Interview summary not found for candidate: " + candidateEmail);
     }
 
     public Map<String, Object> scheduleSecondRound(String candidateEmail) {
@@ -106,70 +125,30 @@ public class InterviewService {
         candidate.setInterviewStatus("PENDING");
         candidateProfileRepository.save(candidate);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Second round scheduled successfully");
-        return response;
+        return ResponseUtils.createSuccessResponse("Second round scheduled successfully");
     }
 
+    @Async
+    public void generateQuestionsAsync(String sessionId, CandidateProfile profile) {
+        try {
+            List<Question> questions = generateQuestionsFromProfile(profile);
+            ObjectMapper mapper = new ObjectMapper();
+            String questionsJson = mapper.writeValueAsString(questions);
+            
+            // Update session with generated questions
+            InterviewSession session = sessionRepository.findBySessionId(sessionId).orElse(null);
+            if (session != null) {
+                session.setQuestionsJson(questionsJson);
+                sessionRepository.save(session);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to generate questions async: " + e.getMessage());
+        }
+    }
+    
     public List<Question> generateQuestionsFromProfile(CandidateProfile profile) {
-        String prompt = """
-                    You are an interview question generator.
-                    Generate exactly 30 interview questions tailored to the candidate's background.
-                
-                    Total questions must be 25 and **mix of types**:
-                     - 25 Multiple-Choice (MCQ/OMR style) questions with 4 options each (do NOT include correct answers).
-                     - 5 Coding/Practical problems (coding challenges, logic-based coding exercises solvable within 5–10 minutes).
-                
-                    Candidate Profile:
-                    positionApplied: %s
-                    Experience: %d years
-                    Skills: %s
-                    Description: %s
-                
-                    Adjust difficulty based on experience:
-                     - If experience ≤ 1 year → Use **Beginner Level**
-                       Focus on: basic syntax, OOP fundamentals, simple algorithms, basic SQL, core language concepts.
-                       Avoid: advanced design patterns, complex system design, concurrency, or scaling questions.
-                
-                     - If 2 ≤ experience ≤ 4 years → Use **Intermediate Level**
-                       Focus on: real-world problem-solving, API usage, debugging, data structures, OOP design, RESTful services, SQL joins, small-scale architecture.
-                
-                     - If experience ≥ 5 years → Use **Advanced Level**
-                       Focus on: system design, optimization, architecture, performance tuning, scalability, multithreading, design patterns, and advanced algorithms.
-                
-                   Other Constraints:
-                    -Ensure a natural variety of question topics based on candidate's skills and Description.
-                    -Ensure questions are concise, clear, and realistic.
-                    -Generate fresh and unique questions each time, ensuring variety and creativity.
-                    -Do NOT include any explanations or answers.
-                
-                
-                    Output strictly in JSON format only, no explanations.
-                JSON format:
-                {
-                  "questions": [
-                    {
-                      "id": "Q1",
-                      "type": "MCQ",
-                      "question": "...",
-                      "options": ["A) ...", "B) ...", "C) ...", "D) ..."]
-                    },
-                    {
-                      "id": "Q6",
-                      "type": "Coding",
-                      "question": "..."
-                    }
-                  ]
-                }
-                
-                """.formatted(profile.getPositionApplied(), profile.getExperienceYears(),
-                profile.getSkills(), profile.getDescription());
-
-        String response = chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
+        String prompt = questionPromptFactory.createPrompt(profile);
+        String response = aiService.generateQuestions(prompt);
 
         try {
             return parseQuestions(response);
@@ -216,16 +195,19 @@ public class InterviewService {
         String reviewPrompt = buildReviewPrompt(questions, userAnswerMap, allEvents);
         String aiResponse = chatClient.prompt().user(reviewPrompt).call().content();
         InterviewSummary summary = parseAiSummary(aiResponse);
+        
+        // Save summary first to get ID
+        InterviewSummary savedSummary = interviewSummaryRepository.save(summary);
 
         Optional<InterviewResult> existingResultOpt = interviewResultRepository.findByCandidateEmail(email);
         if (existingResultOpt.isPresent()) {
             InterviewResult existingResult = existingResultOpt.get();
             existingResult.setAttempts(existingResult.getAttempts() + 1);
             existingResult.setSubmittedAt(LocalDateTime.now());
-            existingResult.setSummary(summary);
+            existingResult.setSummary(savedSummary);
             interviewResultRepository.save(existingResult);
         } else {
-            InterviewResult result = new InterviewResult(email, summary);
+            InterviewResult result = new InterviewResult(email, savedSummary);
             result.setAttempts(1);
             result.setSubmittedAt(LocalDateTime.now());
             interviewResultRepository.save(result);
@@ -247,6 +229,15 @@ public class InterviewService {
             errorResponse.put("error", "Conflict");
             errorResponse.put("message", "This interview session has already been completed.");
             return errorResponse;
+        }
+        
+        // Check if questions are ready
+        if (session.getQuestionsJson() == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "preparing");
+            response.put("message", "Questions are being prepared. Please wait...");
+            response.put("sessionId", sessionId);
+            return response;
         }
 
         ObjectMapper mapper = new ObjectMapper();

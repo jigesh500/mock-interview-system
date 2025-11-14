@@ -2,6 +2,7 @@ package com.msbcgroup.mockinterview.repository;
 
 
 import com.msbcgroup.mockinterview.model.InterviewMeeting;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,4 +15,7 @@ public interface InterviewMeetingRepository extends JpaRepository<InterviewMeeti
     List<InterviewMeeting> findAllByCandidateEmailAndStatus(String candidateEmail, InterviewMeeting.MeetingStatus status);
     List<InterviewMeeting> findByHrEmailAndStatus(String hrEmail, InterviewMeeting.MeetingStatus status);
     Optional<InterviewMeeting> findByLoginToken(String loginToken);
+    
+    @Transactional
+    void deleteByCandidateEmail(String candidateEmail);
 }

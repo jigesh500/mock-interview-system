@@ -5,16 +5,40 @@ const API_BASE_URL = 'http://localhost:8081';
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 15000, // 15 second timeout
 });
 
-// Add response interceptor to handle 401 without redirecting
+// Add response interceptor with retry logic
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    
+    // Handle 401 errors
     if (error.response?.status === 401) {
-      // Session timeout - redirect to login
       window.location.href = 'http://localhost:5173/auth/login';
+      return Promise.reject(error);
     }
+    
+    // Retry logic for network errors and 5xx errors
+    if (!config.retry) config.retry = 0;
+    
+    if (config.retry < 2 && 
+        (error.code === 'NETWORK_ERROR' || 
+         error.code === 'ECONNABORTED' ||
+         (error.response?.status >= 500))) {
+      
+      config.retry++;
+      console.log(`Retrying request (attempt ${config.retry})`);
+      
+      // Exponential backoff
+      await new Promise(resolve => 
+        setTimeout(resolve, 1000 * Math.pow(2, config.retry - 1))
+      );
+      
+      return api(config);
+    }
+    
     return Promise.reject(error);
   }
 );

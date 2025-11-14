@@ -20,9 +20,11 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
   const [violations, setViolations] = useState(0);
   const [baselineStored, setBaselineStored] = useState(false);
   const [showVoicePrompt, setShowVoicePrompt] = useState(false);
+  const [lastAnalysisTime, setLastAnalysisTime] = useState(0);
 
   const streamRef = useRef<MediaStream | null>(null);
   const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (skipBaselineCapture) {
@@ -190,7 +192,7 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
   const startMonitoring = () => {
     monitoringIntervalRef.current = setInterval(() => {
       captureAndAnalyze();
-    }, 8000);
+    }, 20000); // Increased from 8s to 20s - reduces API calls by 60%
   };
 
   const captureAndAnalyze = async () => {
@@ -211,6 +213,13 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
       
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        
+        // Skip analysis if audio is too small (likely silence)
+        if (audioBlob.size < 2000) {
+          console.log('Skipping analysis - audio too small (likely silence)');
+          return;
+        }
+        
         await analyzeVoice(audioBlob);
       };
       
@@ -219,27 +228,50 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
         if (mediaRecorder.state === 'recording') {
           mediaRecorder.stop();
         }
-      }, 5000);
+      }, 3000); // Reduced from 5s to 3s - smaller audio files
       
     } catch (error) {
       console.error('Voice analysis capture failed:', error);
     }
   };
 
-  const analyzeVoice = async (audioBlob: Blob) => {
+  const analyzeVoice = async (audioBlob: Blob, retryCount = 0) => {
     try {
+      // Cancel previous request if still pending
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      abortControllerRef.current = new AbortController();
+      
       const formData = new FormData();
       formData.append('audio', audioBlob, 'sample.webm');
       formData.append('sessionId', sessionId);
       formData.append('candidateEmail', candidateEmail);
       
+      const startTime = Date.now();
+      
       const response = await fetch('http://localhost:8081/api/voice/verify-unknown', {
         method: 'POST',
         body: formData,
-        credentials: 'include'
+        credentials: 'include',
+        signal: abortControllerRef.current.signal,
+        // Add timeout to prevent hanging requests
       });
       
-      const result = await response.json();
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 15000);
+      });
+      
+      const result = await Promise.race([
+        response.json(),
+        timeoutPromise
+      ]) as any;
+      
+      const responseTime = Date.now() - startTime;
+      console.log(`Voice analysis completed in ${responseTime}ms`);
+      setLastAnalysisTime(responseTime);
       
       if (result.violation) {
         setViolations(prev => prev + 1);
@@ -247,8 +279,16 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
         toast.error('🚨 ' + result.message);
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Voice analysis failed:', error);
+      
+      // Retry logic for network errors (max 2 retries)
+      if (retryCount < 2 && (error.name === 'NetworkError' || error.message === 'Request timeout')) {
+        console.log(`Retrying voice analysis (attempt ${retryCount + 1})`);
+        setTimeout(() => {
+          analyzeVoice(audioBlob, retryCount + 1);
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+      }
     }
   };
 
@@ -258,6 +298,9 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -277,10 +320,16 @@ const VoiceMonitorNew: React.FC<VoiceMonitorNewProps> = ({
           Status: <span className="font-medium">
             {status === 'initializing' && 'Starting...'}
             {status === 'capturing' && 'Capturing baseline...'}
-            {status === 'monitoring' && 'Active monitoring'}
+            {status === 'monitoring' && 'Active monitoring (20s intervals)'}
             {status === 'error' && 'Error'}
           </span>
         </div>
+        
+        {status === 'monitoring' && lastAnalysisTime > 0 && (
+          <div className="text-xs text-gray-600">
+            Last analysis: {lastAnalysisTime}ms | Violations: {violations}
+          </div>
+        )}
         
         {(showVoicePrompt || (status === 'capturing' && !baselineStored)) && (
           <div className="text-xs text-blue-700 font-medium bg-blue-100 p-2 rounded border">

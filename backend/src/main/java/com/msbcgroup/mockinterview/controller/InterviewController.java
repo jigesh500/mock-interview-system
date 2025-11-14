@@ -31,6 +31,10 @@ public class InterviewController {
         if (response.containsKey("error") && "Conflict".equals(response.get("error"))) {
             return ResponseEntity.status(409).body(response);
         }
+        
+        if (response.containsKey("status") && "preparing".equals(response.get("status"))) {
+            return ResponseEntity.status(202).body(response); // 202 Accepted - still processing
+        }
 
         return ResponseEntity.ok(response);
     }

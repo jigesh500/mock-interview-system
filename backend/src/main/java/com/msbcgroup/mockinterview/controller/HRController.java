@@ -1,11 +1,12 @@
 package com.msbcgroup.mockinterview.controller;
 
+import com.msbcgroup.mockinterview.dto.InterviewScheduleResponse;
+import com.msbcgroup.mockinterview.dto.InterviewSummaryResponse;
 import com.msbcgroup.mockinterview.model.CandidateProfile;
 import com.msbcgroup.mockinterview.model.ScheduleRequest;
-import com.msbcgroup.mockinterview.model.RoundStatus;
-import com.msbcgroup.mockinterview.service.CandidateService;
-import com.msbcgroup.mockinterview.service.InterviewService;
 import com.msbcgroup.mockinterview.service.AuthService;
+import com.msbcgroup.mockinterview.service.CandidateService;
+import com.msbcgroup.mockinterview.service.InterviewServiceInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +32,7 @@ public class HRController {
     private CandidateService candidateService;
 
     @Autowired
-    private InterviewService interviewService;
+    private InterviewServiceInterface interviewService;
 
     @Autowired
     private AuthService authService;
@@ -71,8 +73,15 @@ public class HRController {
 
     @GetMapping("/interview-summary/{candidateEmail}")
     public ResponseEntity<Map<String, Object>> getInterviewSummary(@PathVariable String candidateEmail) {
-        Map<String, Object> summary = interviewService.getInterviewSummary(candidateEmail);
-        return summary != null ? ResponseEntity.ok(summary) : ResponseEntity.notFound().build();
+        try {
+            InterviewSummaryResponse summary = interviewService.getInterviewSummary(candidateEmail);
+            Map<String, Object> response = new HashMap<>();
+            response.put("score", summary.getScore());
+            response.put("summary", summary.getSummary());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
 
@@ -112,12 +121,6 @@ public class HRController {
                 ResponseEntity.ok(response);
     }
 
-    @PostMapping("/candidate/{candidateEmail}/schedule-second-round")
-    public ResponseEntity<Map<String, Object>> scheduleSecondRound(@PathVariable String candidateEmail) {
-        Map<String, Object> response = interviewService.scheduleSecondRound(candidateEmail);
-        return ResponseEntity.ok(response);
-    }
-
     @DeleteMapping("/candidates/{name}")
     public ResponseEntity<Map<String, String>> deleteCandidate(@PathVariable String name) {
         Map<String, String> response = candidateService.deleteCandidate(name);
@@ -128,7 +131,11 @@ public class HRController {
 
     @PostMapping("/schedule-interview")
     public ResponseEntity<Map<String, Object>> scheduleInterview(@RequestParam String candidateEmail) throws Exception {
-        Map<String, Object> response = interviewService.scheduleInterview(candidateEmail);
+        InterviewScheduleResponse scheduleResponse = interviewService.scheduleInterview(candidateEmail);
+        Map<String, Object> response = new HashMap<>();
+        response.put("magicLink", scheduleResponse.getMagicLink());
+        response.put("message", scheduleResponse.getMessage());
+        response.put("sessionId", scheduleResponse.getSessionId());
         return ResponseEntity.ok(response);
     }
 }

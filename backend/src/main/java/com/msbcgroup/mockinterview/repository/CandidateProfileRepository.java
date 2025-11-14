@@ -14,4 +14,6 @@ public interface CandidateProfileRepository extends JpaRepository<CandidateProfi
     Optional<CandidateProfile> findByCandidateName(String candidateName);
     @Transactional
     void deleteByCandidateName(String candidateName);
+    @Transactional
+    void deleteByCandidateEmail(String candidateEmail);
 }

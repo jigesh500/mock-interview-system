@@ -6,8 +6,11 @@ import com.msbcgroup.mockinterview.repository.InterviewSessionRepository;
 import com.msbcgroup.mockinterview.repository.MonitoringEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -88,5 +91,57 @@ public class MonitoringService {
         }
 
         return response;
+    }
+    
+    @Transactional
+    public void logBatchEvents(List<Map<String, Object>> eventDataList) {
+        System.out.println("\n=== BATCH EVENT LOGGING ===");
+        System.out.println("Processing " + eventDataList.size() + " events");
+        
+        List<MonitoringEvent> events = new ArrayList<>();
+        
+        for (Map<String, Object> eventData : eventDataList) {
+            try {
+                MonitoringEvent event = new MonitoringEvent();
+                
+                String sessionId = (String) eventData.get("sessionId");
+                event.setSessionId(sessionId);
+                
+                String candidateEmail = (String) eventData.get("candidateEmail");
+                if (candidateEmail == null || candidateEmail.isEmpty()) {
+                    // Try to get from session if not provided
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        InterviewSession session = sessionRepository.findBySessionId(sessionId).orElse(null);
+                        if (session != null && session.getCandidateEmail() != null) {
+                            candidateEmail = session.getCandidateEmail();
+                        } else {
+                            candidateEmail = "unknown@interview.com";
+                        }
+                    } else {
+                        candidateEmail = "unknown@interview.com";
+                    }
+                }
+                event.setCandidateEmail(candidateEmail);
+                
+                event.setDescription((String) eventData.getOrDefault("description", ""));
+                event.setMetadata((String) eventData.getOrDefault("metadata", ""));
+                
+                String typeStr = (String) eventData.get("eventType");
+                event.setEventType(MonitoringEvent.EventType.valueOf(typeStr));
+                
+                events.add(event);
+                
+            } catch (Exception e) {
+                System.err.println("Error processing event: " + e.getMessage());
+                // Continue processing other events
+            }
+        }
+        
+        if (!events.isEmpty()) {
+            eventRepository.saveAll(events);
+            System.out.println("Successfully saved " + events.size() + " events to database");
+        }
+        
+        System.out.println("=== BATCH EVENT LOGGING COMPLETE ===\n");
     }
 }

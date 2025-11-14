@@ -3,6 +3,8 @@ package com.msbcgroup.mockinterview.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.*;
+import com.msbcgroup.mockinterview.util.ResponseUtils;
+import com.msbcgroup.mockinterview.mapper.CandidateMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,9 +35,19 @@ public class CandidateService {
     @Autowired
     private InterviewSessionRepository sessionRepository;
 
+    @Autowired
+    private CandidateMapper candidateMapper;
+
+
+
     public List<Map<String, Object>> getAllCandidatesWithStatus() {
         List<CandidateProfile> candidates = candidateProfileRepository.findAll();
-        return candidates.stream().map(this::buildCandidateWithStatus).collect(Collectors.toList());
+        return candidates.stream()
+                .map(candidate -> {
+                    determineOverallStatus(candidate);
+                    return candidateMapper.toDetailedMap(candidate);
+                })
+                .collect(Collectors.toList());
     }
 
     public Map<String, Object> selectCandidateForNextRound(String candidateEmail, String hrEmail) {
@@ -62,11 +74,7 @@ public class CandidateService {
 
         String message = savedCandidate.getCurrentRound() == 2 ? "Candidate promoted to Round 2" : "Candidate selected for final";
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", message);
-        response.put("candidateData", buildCandidateResponse(savedCandidate));
-        return response;
+        return ResponseUtils.createSuccessResponse(message, candidateMapper.toBasicMap(savedCandidate));
     }
 
     public Map<String, Object> rejectCandidate(String candidateEmail, String hrEmail) {
@@ -93,11 +101,7 @@ public class CandidateService {
         String message = savedCandidate.getFirstRoundStatus() == RoundStatus.FAIL ?
                 "Candidate rejected in Round 1" : "Candidate rejected in Round 2";
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", message);
-        response.put("candidateData", buildCandidateResponse(savedCandidate));
-        return response;
+        return ResponseUtils.createSuccessResponse(message, candidateMapper.toBasicMap(savedCandidate));
     }
 
     public Map<String, Object> addCandidate(CandidateProfile candidate) {
@@ -111,10 +115,7 @@ public class CandidateService {
         }
 
         CandidateProfile saved = candidateProfileRepository.save(candidate);
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", saved);
-        return response;
+        return ResponseUtils.createSuccessResponse("Candidate added successfully", saved);
     }
 
     public CandidateProfile findCandidateByEmail(String email) {
@@ -131,58 +132,10 @@ public class CandidateService {
             throw new RuntimeException("Candidate not found");
         }
         candidateProfileRepository.deleteByCandidateName(name);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Candidate deleted successfully");
-        return response;
+        return ResponseUtils.createSimpleResponse("Candidate deleted successfully");
     }
 
-    private Map<String, Object> buildCandidateWithStatus(CandidateProfile candidate) {
-        Map<String, Object> candidateData = new HashMap<>();
-        candidateData.put("id", candidate.getId());
-        candidateData.put("candidateName", candidate.getCandidateName());
-        candidateData.put("candidateEmail", candidate.getCandidateEmail());
-        candidateData.put("positionApplied", candidate.getPositionApplied());
-        candidateData.put("experienceYears", candidate.getExperienceYears());
-        candidateData.put("skills", candidate.getSkills());
-        candidateData.put("firstRoundStatus", candidate.getFirstRoundStatus());
-        candidateData.put("secondRoundStatus", candidate.getSecondRoundStatus());
-        candidateData.put("secondRoundInterviewerEmail", candidate.getSecondRoundInterviewerEmail());
-        candidateData.put("secondRoundInterviewerName", candidate.getSecondRoundInterviewerName());
-        candidateData.put("currentRound", candidate.getCurrentRound());
-        candidateData.put("lastDecisionTimestamp", candidate.getLastDecisionTimestamp());
-        candidateData.put("decisionMadeBy", candidate.getDecisionMadeBy());
 
-        String overallStatus = determineOverallStatus(candidate);
-        candidateData.put("overallStatus", overallStatus);
-
-        String interviewStatus = determineInterviewStatus(candidate);
-        candidateData.put("interviewStatus", interviewStatus);
-
-        Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidate.getCandidateEmail());
-        boolean hasSummary = interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1;
-        
-        // Debug logging
-        System.out.println("Candidate: " + candidate.getCandidateEmail());
-        System.out.println("InterviewResult present: " + interviewResult.isPresent());
-        if (interviewResult.isPresent()) {
-            System.out.println("Attempts: " + interviewResult.get().getAttempts());
-            System.out.println("Summary present: " + (interviewResult.get().getSummary() != null));
-        }
-        System.out.println("HasSummary: " + hasSummary);
-        
-        candidateData.put("summaryStatus", hasSummary);
-        Optional<InterviewMeeting> scheduledMeeting = meetingRepository.findAllByCandidateEmailAndStatus(
-                        candidate.getCandidateEmail(), InterviewMeeting.MeetingStatus.SCHEDULED)
-                .stream().findFirst();
-        if (scheduledMeeting.isPresent() ) {
-            candidateData.put("magicLink", scheduledMeeting.get().getMeetingUrl());
-        } else {
-            candidateData.put("magicLink", null);
-        }
-
-        return candidateData;
-    }
 
     private String determineOverallStatus(CandidateProfile candidate) {
         String overallStatus = candidate.getOverallStatus();
@@ -202,19 +155,7 @@ public class CandidateService {
         return overallStatus;
     }
 
-    private String determineInterviewStatus(CandidateProfile candidate) {
-        Optional<InterviewResult> interviewResult = interviewResultRepository.findByCandidateEmail(candidate.getCandidateEmail());
-        List<InterviewMeeting> activeMeetings = meetingRepository.findAllByCandidateEmailAndStatus(
-                candidate.getCandidateEmail(), InterviewMeeting.MeetingStatus.SCHEDULED);
 
-        if (!activeMeetings.isEmpty()) {
-            return "Scheduled";
-        } else if (interviewResult.isPresent() && interviewResult.get().getAttempts() >= 1) {
-            return "Completed";
-        } else {
-            return "Pending";
-        }
-    }
 
     public Map<String, Object> updateCandidateResume(String candidateEmail, MultipartFile file) throws IOException {
         CandidateProfile candidate = findCandidateByEmail(candidateEmail);
@@ -230,11 +171,7 @@ public class CandidateService {
         candidate.setLocation(parsedData.get("location").asText());
         candidate.setDescription(parsedData.get("description").asText());
         CandidateProfile updatedCandidate = updateCandidate(candidate);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", updatedCandidate);
-        return response;
+        return ResponseUtils.createSuccessResponse("Resume updated successfully", updatedCandidate);
     }
 
     public Map<String, Object> parseAndValidateResume(MultipartFile file) throws IOException {
@@ -245,37 +182,16 @@ public class CandidateService {
         if (email != null && !email.isEmpty()) {
             try {
                 findCandidateByEmail(email);
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("error", "Candidate with email " + email + " already exists");
-                return response;
+                return ResponseUtils.createErrorResponse("Candidate with email " + email + " already exists");
             } catch (RuntimeException e) {
                 // Candidate not found, continue
             }
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", parsedData);
-        return response;
+        return ResponseUtils.createSuccessResponse("Resume parsed successfully", parsedData);
     }
 
-    private Map<String, Object> buildCandidateResponse(CandidateProfile candidate) {
-        Map<String, Object> candidateData = new HashMap<>();
-        candidateData.put("candidateEmail", candidate.getCandidateEmail());
-        candidateData.put("candidateName", candidate.getCandidateName());
-        candidateData.put("firstRoundStatus", candidate.getFirstRoundStatus());
-        candidateData.put("secondRoundStatus", candidate.getSecondRoundStatus());
-        candidateData.put("currentRound", candidate.getCurrentRound());
-        candidateData.put("interviewStatus", candidate.getInterviewStatus());
-        candidateData.put("overallStatus", candidate.getOverallStatus());
-        candidateData.put("lastDecisionTimestamp", candidate.getLastDecisionTimestamp());
-        candidateData.put("decisionMadeBy", candidate.getDecisionMadeBy());
 
-
-
-        return candidateData;
-    }
 
     public Map<String, Object> getInterviewInfoBySession(String sessionId) {
         InterviewSession session = sessionRepository.findBySessionId(sessionId)
@@ -298,10 +214,7 @@ public class CandidateService {
         candidate.setSecondRoundStatus(RoundStatus.SCHEDULED);
 
         updateCandidate(candidate);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Second round scheduled successfully for " + candidate.getCandidateName());
-        return response;
+        return ResponseUtils.createSimpleResponse("Second round scheduled successfully for " + candidate.getCandidateName());
     }
 
     private void validateInterviewCompletion(String candidateEmail) {

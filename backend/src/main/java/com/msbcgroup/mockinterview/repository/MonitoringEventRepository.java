@@ -3,6 +3,7 @@ package com.msbcgroup.mockinterview.repository;
 import com.msbcgroup.mockinterview.model.EventType;
 import com.msbcgroup.mockinterview.model.MonitoringEvent;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +28,7 @@ public interface MonitoringEventRepository extends JpaRepository<MonitoringEvent
     default List<MonitoringEvent> findRecentEventsBySession(LocalDateTime since) {
         return findByTimestampAfterOrderByTimestampDesc(since);
     }
+    
+    @Transactional
+    void deleteByCandidateEmail(String candidateEmail);
 }
