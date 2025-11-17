@@ -1,6 +1,6 @@
 package com.msbcgroup.mockinterview;
 
-import com.microsoft.graph.requests.GraphServiceClient;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

@@ -13,7 +13,6 @@ import com.msbcgroup.mockinterview.service.question.QuestionPromptFactory;
 import com.msbcgroup.mockinterview.util.ResponseUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -45,6 +44,8 @@ public class InterviewService implements InterviewServiceInterface{
     private AIService aiService;
     @Autowired
     private QuestionPromptFactory questionPromptFactory;
+    @Autowired
+    private AsyncQuestionService asyncQuestionService;
 
     private final ChatClient chatClient;
 
@@ -83,7 +84,8 @@ public class InterviewService implements InterviewServiceInterface{
         sessionRepository.save(session);
         
         // Generate questions asynchronously
-        generateQuestionsAsync(sessionId, profile);
+        asyncQuestionService.generateQuestionsAsync(sessionId, profile);
+        System.out.println("Interview scheduled immediately, questions generating in background");
 
         String magicLink = "http://localhost:8081/api/auth/start-interview/" + sessionId;
 
@@ -128,23 +130,7 @@ public class InterviewService implements InterviewServiceInterface{
         return ResponseUtils.createSuccessResponse("Second round scheduled successfully");
     }
 
-    @Async
-    public void generateQuestionsAsync(String sessionId, CandidateProfile profile) {
-        try {
-            List<Question> questions = generateQuestionsFromProfile(profile);
-            ObjectMapper mapper = new ObjectMapper();
-            String questionsJson = mapper.writeValueAsString(questions);
-            
-            // Update session with generated questions
-            InterviewSession session = sessionRepository.findBySessionId(sessionId).orElse(null);
-            if (session != null) {
-                session.setQuestionsJson(questionsJson);
-                sessionRepository.save(session);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to generate questions async: " + e.getMessage());
-        }
-    }
+
     
     public List<Question> generateQuestionsFromProfile(CandidateProfile profile) {
         String prompt = questionPromptFactory.createPrompt(profile);
@@ -311,10 +297,10 @@ public class InterviewService implements InterviewServiceInterface{
                         You are an experienced technical interviewer. Review the candidate's exam answers and generate a structured evaluation.
                 
                 SCORING INSTRUCTIONS:
-                - Total questions: 25 (20 MCQ + 5 coding)
+                - Total questions: 30 (25 MCQ + 5 coding)
                 - Each question is worth exactly 1 point
                 - No negative marking
-                - Score range: 0-25
+                - Score range: 0-30
                 
                 For MCQ questions:
                 - Award 1 point if the selected option matches the correct answer
@@ -341,7 +327,7 @@ public class InterviewService implements InterviewServiceInterface{
                 
                 Output strictly in JSON format:
                 {
-                  "score": [Number 0-25],
+                  "score": [Number 0-30],
                   "summary": "[One sentence summary including performance, strengths, weaknesses, and violations]",
                   "strengths": "[3 bullet points separated by |]",
                   "improvements": "[3 bullet points separated by |]",

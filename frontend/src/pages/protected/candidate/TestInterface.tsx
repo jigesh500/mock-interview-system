@@ -210,9 +210,14 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
     const currentQuestion = questions[currentQuestionIndex];
     const selectedAnswer = currentQuestion ? answers?.[currentQuestion.id] ?? "" : "";
 
-    if (currentQuestion?.type === "Coding" && currentLanguage === 'java' && !selectedAnswer.trim()) {
-      const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
-      dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+    if (currentQuestion?.type === "Coding" && !selectedAnswer.trim()) {
+      if (currentLanguage === 'java') {
+        const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
+        dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+      } else if (currentLanguage === 'sql') {
+        const template = `-- Write your SQL query here\nSELECT * FROM table_name;`;
+        dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+      }
     }
   }, [currentLanguage, currentQuestionIndex, questions, answers, dispatch]);
 
@@ -488,6 +493,9 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                           if (newLanguage === 'java') {
                             const template = `public class Main {\n    public static void main(String[] args) {\n        // Write your code here\n        System.out.println("Hello, World!");\n    }\n}`;
                             dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
+                          } else if (newLanguage === 'sql') {
+                            const template = `-- Write your SQL query here\nSELECT * FROM table_name;`;
+                            dispatch(saveAnswer({ questionId: currentQuestion.id, answer: template }));
                           } else {
                             dispatch(saveAnswer({ questionId: currentQuestion.id, answer: "" }));
                           }
@@ -499,6 +507,7 @@ const TestInterface: React.FC<StartTestProps> = ({ onExamSubmit }) => {
                         <option value="java">Java</option>
                         <option value="cpp">C++</option>
                         <option value="c">C</option>
+                        <option value="sql">SQL</option>
                       </select>
                       <button
                         onClick={handleExecuteCode}

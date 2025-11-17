@@ -5,6 +5,8 @@ import com.msbcgroup.mockinterview.model.*;
 import com.msbcgroup.mockinterview.repository.*;
 import com.msbcgroup.mockinterview.util.ResponseUtils;
 import com.msbcgroup.mockinterview.mapper.CandidateMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class CandidateService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CandidateService.class);
 
     @Autowired
     private CandidateProfileRepository candidateProfileRepository;
@@ -37,6 +41,18 @@ public class CandidateService {
 
     @Autowired
     private CandidateMapper candidateMapper;
+
+    @Autowired
+    private InterviewSummaryRepository interviewSummaryRepository;
+
+    @Autowired
+    private MonitoringEventRepository monitoringEventRepository;
+
+    @Autowired
+    private VoiceBaselineRepository voiceBaselineRepository;
+
+    @Autowired
+    private OutlookSMTPService outlookSMTPService;
 
 
 
@@ -128,11 +144,51 @@ public class CandidateService {
     }
 
     public Map<String, String> deleteCandidate(String name) {
-        if (!candidateProfileRepository.findByCandidateName(name).isPresent()) {
+        Optional<CandidateProfile> candidateOpt = candidateProfileRepository.findByCandidateName(name);
+        if (!candidateOpt.isPresent()) {
             throw new RuntimeException("Candidate not found");
         }
+        
+        String candidateEmail = candidateOpt.get().getCandidateEmail();
+        deleteCandidateCompletely(candidateEmail);
         candidateProfileRepository.deleteByCandidateName(name);
-        return ResponseUtils.createSimpleResponse("Candidate deleted successfully");
+        return ResponseUtils.createSimpleResponse("Candidate and all related data deleted successfully");
+    }
+
+    public Map<String, String> deleteCandidateByEmail(String candidateEmail) {
+        if (!candidateProfileRepository.findByCandidateEmail(candidateEmail).isPresent()) {
+            throw new RuntimeException("Candidate not found");
+        }
+        
+        deleteCandidateCompletely(candidateEmail);
+        candidateProfileRepository.findByCandidateEmail(candidateEmail)
+            .ifPresent(candidate -> candidateProfileRepository.delete(candidate));
+        return ResponseUtils.createSimpleResponse("Candidate and all related data deleted successfully");
+    }
+
+    private void deleteCandidateCompletely(String candidateEmail) {
+        // Delete all related data in proper order to avoid foreign key constraints
+        try {
+            monitoringEventRepository.findByCandidateEmailOrderByTimestampDesc(candidateEmail)
+                .forEach(event -> monitoringEventRepository.delete(event));
+            
+            voiceBaselineRepository.findByCandidateEmail(candidateEmail)
+                .ifPresent(baseline -> voiceBaselineRepository.delete(baseline));
+            
+            interviewResultRepository.findByCandidateEmail(candidateEmail)
+                .ifPresent(result -> interviewResultRepository.delete(result));
+            
+            sessionRepository.findByCandidateEmail(candidateEmail)
+                .forEach(session -> sessionRepository.delete(session));
+            
+            // Delete all meetings for the candidate regardless of status
+            meetingRepository.findAll().stream()
+                .filter(meeting -> candidateEmail.equals(meeting.getCandidateEmail()))
+                .forEach(meeting -> meetingRepository.delete(meeting));
+        } catch (Exception e) {
+            // Log error but continue with deletion
+            logger.error("Error deleting related data for candidate: " + candidateEmail, e);
+        }
     }
 
 
@@ -211,10 +267,27 @@ public class CandidateService {
 
         candidate.setSecondRoundInterviewerEmail(scheduleRequest.getInterviewerEmail());
         candidate.setSecondRoundInterviewerName(scheduleRequest.getInterviewerName());
+        candidate.setSecondRoundScheduledDateTime(scheduleRequest.getScheduledDateTime());
+        candidate.setSecondRoundNotes(scheduleRequest.getNotes());
         candidate.setSecondRoundStatus(RoundStatus.SCHEDULED);
 
         updateCandidate(candidate);
-        return ResponseUtils.createSimpleResponse("Second round scheduled successfully for " + candidate.getCandidateName());
+        
+        // Send email notification to interviewer
+        try {
+            outlookSMTPService.sendSecondRoundScheduleEmail(
+                candidate, 
+                scheduleRequest.getInterviewerEmail(), 
+                scheduleRequest.getInterviewerName(),
+                scheduleRequest.getScheduledDateTime()
+            );
+            logger.info("PI interview email sent successfully for candidate: {}", candidate.getCandidateName());
+        } catch (Exception e) {
+            logger.error("Failed to send PI interview email for candidate: {}", candidate.getCandidateName(), e);
+            // Continue with scheduling even if email fails
+        }
+        
+        return ResponseUtils.createSimpleResponse("PI interview scheduled successfully for " + candidate.getCandidateName() + ". Email sent to interviewer.");
     }
 
     private void validateInterviewCompletion(String candidateEmail) {

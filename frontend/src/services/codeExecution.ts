@@ -8,7 +8,8 @@ const languageMap: { [key: string]: number } = {
   'python': 71,
   'java': 62,
   'cpp': 54,
-  'c': 50
+  'c': 50,
+  'sql': 82
 };
 
 // ✅ UPDATED: Function signature now includes an optional 'className' parameter.

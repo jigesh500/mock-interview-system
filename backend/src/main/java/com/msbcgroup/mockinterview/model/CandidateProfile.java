@@ -55,6 +55,10 @@ import java.time.LocalDateTime;
 
     private String secondRoundInterviewerName;
 
+    private LocalDateTime secondRoundScheduledDateTime;
+
+    private String secondRoundNotes;
+
 
     public CandidateProfile() {
         this.createdAt = LocalDateTime.now();
@@ -211,6 +215,22 @@ import java.time.LocalDateTime;
 
     public void setOverallStatus(String overallStatus) {
         this.overallStatus = overallStatus;
+    }
+
+    public LocalDateTime getSecondRoundScheduledDateTime() {
+        return secondRoundScheduledDateTime;
+    }
+
+    public void setSecondRoundScheduledDateTime(LocalDateTime secondRoundScheduledDateTime) {
+        this.secondRoundScheduledDateTime = secondRoundScheduledDateTime;
+    }
+
+    public String getSecondRoundNotes() {
+        return secondRoundNotes;
+    }
+
+    public void setSecondRoundNotes(String secondRoundNotes) {
+        this.secondRoundNotes = secondRoundNotes;
     }
     // Helper method to check if candidate needs second round
     public boolean needsSecondRound() {

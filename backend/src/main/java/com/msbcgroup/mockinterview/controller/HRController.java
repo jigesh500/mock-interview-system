@@ -54,9 +54,31 @@ public class HRController {
 
 
     @PostMapping("/schedule-second-round")
-    public ResponseEntity<Map<String, String>> scheduleSecondRound(@RequestBody ScheduleRequest scheduleRequest) {
-        Map<String, String> response = candidateService.scheduleSecondRound(scheduleRequest);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Map<String, Object>> scheduleSecondRound(@RequestBody ScheduleRequest scheduleRequest) {
+        try {
+            // Validate required fields
+            if (scheduleRequest.getCandidateEmail() == null || scheduleRequest.getInterviewerEmail() == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Candidate email and interviewer email are required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            Map<String, String> response = candidateService.scheduleSecondRound(scheduleRequest);
+            Map<String, Object> successResponse = new HashMap<>();
+            successResponse.put("message", response.get("message"));
+            successResponse.put("success", true);
+            successResponse.put("candidateEmail", scheduleRequest.getCandidateEmail());
+            successResponse.put("interviewerEmail", scheduleRequest.getInterviewerEmail());
+            successResponse.put("scheduledDateTime", scheduleRequest.getScheduledDateTime());
+            
+            return ResponseEntity.ok(successResponse);
+        } catch (Exception e) {
+            logger.error("Error scheduling second round interview", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to schedule second round: " + e.getMessage());
+            errorResponse.put("success", false);
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
 
     @PostMapping("/candidate/{candidateEmail}/round/reject")
@@ -127,6 +149,12 @@ public class HRController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/candidates/email/{candidateEmail}")
+    public ResponseEntity<Map<String, String>> deleteCandidateByEmail(@PathVariable String candidateEmail) {
+        Map<String, String> response = candidateService.deleteCandidateByEmail(candidateEmail);
+        return ResponseEntity.ok(response);
+    }
+
 
 
     @PostMapping("/schedule-interview")
@@ -136,6 +164,14 @@ public class HRController {
         response.put("magicLink", scheduleResponse.getMagicLink());
         response.put("message", scheduleResponse.getMessage());
         response.put("sessionId", scheduleResponse.getSessionId());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/test-email")
+    public ResponseEntity<Map<String, String>> testEmail() {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Email service is configured and ready");
+        response.put("hrEmail", "jigesh.jethava@msbcgroup.com");
         return ResponseEntity.ok(response);
     }
 }

@@ -17,6 +17,8 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
 }) => {
   const [interviewerEmail, setInterviewerEmail] = useState('');
   const [interviewerName, setInterviewerName] = useState('');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -24,6 +26,8 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
       // Reset fields every time modal opens
       setInterviewerEmail('');
       setInterviewerName('');
+      setScheduledDateTime('');
+      setNotes('');
     }
   }, [isOpen]);
 
@@ -31,8 +35,8 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
     e.preventDefault();
 
     // Validation
-    if (!interviewerEmail || !interviewerName) {
-      toast.error('Please enter both interviewer email and name.');
+    if (!interviewerEmail || !interviewerName || !scheduledDateTime) {
+      toast.error('Please fill in all required fields.');
       return;
     }
 
@@ -42,13 +46,15 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
         candidateEmail,
         interviewerEmail,
         interviewerName,
+        scheduledDateTime,
+        notes,
       });
 
-      toast.success('Second round scheduled successfully!');
+      toast.success('Second round scheduled successfully! Email sent to interviewer.');
       onScheduled(); // refresh parent data
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to schedule interview.');
+      toast.error(error.response?.data?.error || 'Failed to schedule interview.');
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +98,32 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
               required
             />
           </div>
+          <div>
+            <label htmlFor="scheduledDateTime" className="block text-sm font-medium text-gray-700 mb-1">
+              Scheduled Date & Time *
+            </label>
+            <input
+              type="datetime-local"
+              id="scheduledDateTime"
+              value={scheduledDateTime}
+              onChange={(e) => setScheduledDateTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              Notes (Optional)
+            </label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Additional notes for the interviewer..."
+              rows={3}
+            />
+          </div>
           <div className="flex justify-end gap-3 mt-6">
             <button
               type="button"
@@ -102,10 +134,10 @@ const ScheduleSecondRoundModal: React.FC<ScheduleSecondRoundModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !interviewerEmail || !interviewerName}
+              disabled={isLoading || !interviewerEmail || !interviewerName || !scheduledDateTime}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
             >
-              {isLoading ? 'Scheduling...' : 'Assign Interviewer'}
+              {isLoading ? 'Scheduling & Sending Email...' : 'Schedule & Send Email'}
             </button>
           </div>
         </form>
